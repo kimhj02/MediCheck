@@ -17,3 +17,11 @@ spring:
   h2:
     console:
       enabled: false
+
+# 건강보험심사평가원 병원정보 Open API (공공데이터포털 인증키)
+# 로컬: application-local.yaml 에 service-key 넣고 프로필 local 로 실행
+hira:
+  api:
+    # 공공데이터포털 개발계정 상세보기 기준: v2, getHospBasisList
+    base-url: https://apis.data.go.kr/B551182/hospInfoServicev2
+    service-key: ${HIRA_SERVICE_KEY:}
