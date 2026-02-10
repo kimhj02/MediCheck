@@ -6,6 +6,9 @@ import com.medicheck.server.dto.SyncResult;
 import com.medicheck.server.service.HiraSyncService;
 import com.medicheck.server.service.HospitalService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -13,7 +16,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.List;
 import java.util.Map;
 
 /**
@@ -29,13 +31,15 @@ public class HospitalController {
     private final HiraHospitalClient hiraHospitalClient;
 
     /**
-     * 병원 목록 조회.
-     * GET /api/hospitals
+     * 병원 목록 조회 (페이지네이션).
+     * GET /api/hospitals?page=0&size=20
      */
     @GetMapping
-    public ResponseEntity<List<HospitalResponse>> getHospitals() {
-        List<HospitalResponse> list = hospitalService.findAll();
-        return ResponseEntity.ok(list);
+    public ResponseEntity<Page<HospitalResponse>> getHospitals(
+            @PageableDefault(size = 20) Pageable pageable
+    ) {
+        Page<HospitalResponse> page = hospitalService.findAll(pageable);
+        return ResponseEntity.ok(page);
     }
 
     /**
