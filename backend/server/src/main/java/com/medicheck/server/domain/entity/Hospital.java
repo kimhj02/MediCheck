@@ -10,6 +10,10 @@ import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.locationtech.jts.geom.Coordinate;
+import org.locationtech.jts.geom.GeometryFactory;
+import org.locationtech.jts.geom.Point;
+import org.locationtech.jts.geom.PrecisionModel;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -32,9 +36,17 @@ public class Hospital {
     @Column(nullable = false, length = 200)
     private String name;
 
+    /** DB 기존 컬럼(hosp_name) 호환용 — name과 동일 값 저장 */
+    @Column(name = "hosp_name", length = 200)
+    private String hospName;
+
     /** 주소 (LBS 검색용) */
     @Column(length = 500)
     private String address;
+
+    /** DB GEOMETRY 컬럼 — 위·경도로 POINT 저장 */
+    @Column(name = "location", columnDefinition = "GEOMETRY")
+    private Point location;
 
     /** 위도 */
     @Column(precision = 10, scale = 7)
@@ -48,9 +60,13 @@ public class Hospital {
     @Column(length = 20)
     private String phone;
 
-    /** 심평원/건보 공공데이터 연동용 코드 */
-    @Column(name = "public_code", unique = true, length = 50)
+    /** 심평원/건보 공공데이터 연동용 코드(암호화 요양기호 등) */
+    @Column(name = "public_code", unique = true, length = 500)
     private String publicCode;
+
+    /** DB 기존 컬럼(ykiho) 호환용 — publicCode와 동일 값 저장 */
+    @Column(name = "ykiho", length = 500)
+    private String ykiho;
 
     /** 진료과 (예: 내과, 외과) */
     @Column(length = 100)
@@ -73,13 +89,26 @@ public class Hospital {
             String department
     ) {
         this.name = name;
+        this.hospName = name;
         this.address = address;
+        this.location = toPoint(longitude, latitude);
         this.latitude = latitude;
         this.longitude = longitude;
         this.phone = phone;
         this.publicCode = publicCode;
+        this.ykiho = publicCode;
         this.department = department;
         this.createdAt = LocalDateTime.now();
         this.updatedAt = LocalDateTime.now();
+    }
+
+    private static final GeometryFactory GEOMETRY_FACTORY = new GeometryFactory(new PrecisionModel(), 4326);
+
+    private static Point toPoint(BigDecimal longitude, BigDecimal latitude) {
+        if (longitude == null || latitude == null) return null;
+        return GEOMETRY_FACTORY.createPoint(new Coordinate(
+                longitude.doubleValue(),
+                latitude.doubleValue()
+        ));
     }
 }
