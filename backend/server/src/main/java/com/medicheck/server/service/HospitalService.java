@@ -11,6 +11,10 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.util.List;
+import java.util.stream.Collectors;
+
 /**
  * 안심 병원 조회 서비스.
  */
@@ -20,6 +24,10 @@ import org.springframework.transaction.annotation.Transactional;
 public class HospitalService {
 
     private final HospitalRepository hospitalRepository;
+    /** 근처 병원 조회 시 한 번에 반환할 최대 개수 */
+    private static final int NEARBY_MAX_RESULTS = 100;
+    /** 근처 병원 조회에서 허용할 최대 반경 (미터) — 예: 50km */
+    private static final double MAX_RADIUS_METERS = 50_000;
 
     /**
      * 등록된 병원 목록을 페이지 단위로 조회합니다.
@@ -33,5 +41,34 @@ public class HospitalService {
         Specification<Hospital> spec =
                 HospitalSpecification.withFilters(keyword, department);
         return hospitalRepository.findAll(spec, pageable).map(HospitalResponse::from);
+    }
+
+    /**
+     * 사용자의 위치 기준 반경(radiusMeters m) 내 병원을 거리순으로 조회합니다.
+     *
+     * @param latitude     사용자 위도 (WGS84)
+     * @param longitude    사용자 경도 (WGS84)
+     * @param radiusMeters 반경 (미터)
+     */
+    public List<HospitalResponse> findNearby(BigDecimal latitude, BigDecimal longitude, double radiusMeters) {
+        if (latitude == null || longitude == null) {
+            throw new IllegalArgumentException("latitude and longitude must not be null");
+        }
+        if (radiusMeters <= 0) {
+            throw new IllegalArgumentException("radiusMeters must be greater than 0");
+        }
+
+        double effectiveRadius = Math.min(radiusMeters, MAX_RADIUS_METERS);
+
+        List<Hospital> hospitals = hospitalRepository.findNearby(
+                latitude.doubleValue(),
+                longitude.doubleValue(),
+                effectiveRadius,
+                NEARBY_MAX_RESULTS
+        );
+
+        return hospitals.stream()
+                .map(HospitalResponse::from)
+                .collect(Collectors.toList());
     }
 }
