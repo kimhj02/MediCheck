@@ -32,9 +32,12 @@ public class HospitalPersistenceService {
             return 0;
         }
 
+        // ykiho(요양기호)는 저장 시 trim(…, 500)을 적용하므로, 조회·중복 체크에도 동일한 정규화를 사용
         List<String> ykihoList = items.stream()
                 .map(HiraHospItem::getYkiho)
+                .map(y -> trim(y, 500))
                 .filter(y -> y != null && !y.isBlank())
+                .distinct()
                 .toList();
 
         Set<String> existingCodes = ykihoList.isEmpty()
@@ -43,11 +46,16 @@ public class HospitalPersistenceService {
                         .map(Hospital::getPublicCode)
                         .collect(Collectors.toSet());
 
+        // 동일 배치 내 중복 ykiho 저장 방지를 위한 로컬 Set
+        Set<String> seenCodes = new java.util.HashSet<>();
+
         List<Hospital> toSave = items.stream()
                 .filter(item -> {
-                    String ykiho = item.getYkiho();
+                    String rawYkiho = item.getYkiho();
+                    String ykiho = trim(rawYkiho, 500);
                     if (ykiho == null || ykiho.isBlank()) return false;
-                    if (existingCodes.contains(trim(ykiho, 500))) return false;
+                    if (existingCodes.contains(ykiho)) return false;
+                    if (!seenCodes.add(ykiho)) return false; // 배치 내 중복 제거
                     String name = trim(item.getYadmNm(), 200);
                     return name != null && !name.isBlank();
                 })
