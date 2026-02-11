@@ -24,6 +24,7 @@ import java.util.stream.Collectors;
 public class HospitalService {
 
     private final HospitalRepository hospitalRepository;
+    private static final int NEARBY_MAX_RESULTS = 100;
 
     /**
      * 등록된 병원 목록을 페이지 단위로 조회합니다.
@@ -57,7 +58,8 @@ public class HospitalService {
         List<Hospital> hospitals = hospitalRepository.findNearby(
                 latitude.doubleValue(),
                 longitude.doubleValue(),
-                radiusMeters
+                radiusMeters,
+                NEARBY_MAX_RESULTS
         );
 
         return hospitals.stream()

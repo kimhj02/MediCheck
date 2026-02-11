@@ -23,28 +23,31 @@ public interface HospitalRepository extends JpaRepository<Hospital, Long>, JpaSp
     /**
      * 사용자의 위도/경도에서 주어진 반경(m) 안에 있는 병원을 거리 오름차순으로 조회합니다.
      * MySQL 8+의 ST_Distance_Sphere, POINT, ST_SRID 를 사용합니다.
+     * 너무 큰 결과 집합을 피하기 위해 maxResults 로 상한을 둡니다.
      *
      * @param latitude      사용자 위도 (WGS84)
      * @param longitude     사용자 경도 (WGS84)
      * @param radiusMeters  반경 (미터)
+     * @param maxResults    최대 반환 개수
      */
     @Query(value = """
-            SELECT *
+            SELECT  h.*,
+                    ST_Distance_Sphere(
+                        h.location,
+                        ST_SRID(POINT(:longitude, :latitude), 4326)
+                    ) AS distance
             FROM hospitals h
-            WHERE ST_Distance_Sphere(
-                      h.location,
-                      ST_SRID(POINT(:longitude, :latitude), 4326)
-                  ) <= :radiusMeters
-            ORDER BY ST_Distance_Sphere(
-                      h.location,
-                      ST_SRID(POINT(:longitude, :latitude), 4326)
-                  ) ASC
+            WHERE h.location IS NOT NULL
+            HAVING distance <= :radiusMeters
+            ORDER BY distance ASC
+            LIMIT :maxResults
             """,
             nativeQuery = true)
     List<Hospital> findNearby(
             @Param("latitude") double latitude,
             @Param("longitude") double longitude,
-            @Param("radiusMeters") double radiusMeters
+            @Param("radiusMeters") double radiusMeters,
+            @Param("maxResults") int maxResults
     );
 }
 
