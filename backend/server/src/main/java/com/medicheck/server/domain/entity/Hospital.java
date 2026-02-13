@@ -163,6 +163,47 @@ public class Hospital {
         this.updatedAt = LocalDateTime.now();
     }
 
+    /**
+     * HIRA API 데이터로 기존 행을 갱신합니다. publicCode/ykiho/id/createdAt 은 변경하지 않습니다.
+     */
+    public void updateFromHira(
+            String name,
+            String address,
+            BigDecimal latitude,
+            BigDecimal longitude,
+            String phone,
+            String department,
+            Integer doctorTotalCount,
+            LocalDate establishedDate,
+            Integer mdeptSpecialistCount,
+            Integer mdeptGeneralCount,
+            Integer mdeptInternCount,
+            Integer mdeptResidentCount,
+            Integer detySpecialistCount,
+            Integer cmdcSpecialistCount
+    ) {
+        if (name != null) {
+            this.name = name;
+            this.hospName = name;
+        }
+        if (address != null) this.address = address;
+        if (latitude != null) this.latitude = latitude;
+        if (longitude != null) this.longitude = longitude;
+        if (longitude != null || latitude != null) {
+            this.location = toPoint(longitude, latitude);
+        }
+        if (phone != null) this.phone = phone;
+        if (department != null) this.department = department;
+        this.doctorTotalCount = doctorTotalCount;
+        this.establishedDate = establishedDate;
+        this.mdeptSpecialistCount = mdeptSpecialistCount;
+        this.mdeptGeneralCount = mdeptGeneralCount;
+        this.mdeptInternCount = mdeptInternCount;
+        this.mdeptResidentCount = mdeptResidentCount;
+        this.detySpecialistCount = detySpecialistCount;
+        this.cmdcSpecialistCount = cmdcSpecialistCount;
+    }
+
     private static final GeometryFactory GEOMETRY_FACTORY = new GeometryFactory(new PrecisionModel(), 4326);
 
     private static Point toPoint(BigDecimal longitude, BigDecimal latitude) {

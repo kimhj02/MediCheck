@@ -39,13 +39,15 @@ public class HiraSyncService {
 
         List<HiraHospItem> items = hiraHospitalClient.getHospBasisList(pageNo, numOfRows);
         int saved = hospitalPersistenceService.saveNewHospitals(items);
+        int updated = hospitalPersistenceService.updateExistingHospitals(items);
 
-        log.info("HIRA 동기화(서울 기본): pageNo={}, numOfRows={}, 조회={}, 신규저장={}",
-                pageNo, numOfRows, items.size(), saved);
+        log.info("HIRA 동기화(서울 기본): pageNo={}, numOfRows={}, 조회={}, 신규저장={}, 기존갱신={}",
+                pageNo, numOfRows, items.size(), saved, updated);
         return SyncResult.builder()
                 .keyConfigured(keyConfigured)
                 .fetchedCount(items.size())
                 .saved(saved)
+                .updated(updated)
                 .build();
     }
 
@@ -63,6 +65,7 @@ public class HiraSyncService {
                     .keyConfigured(false)
                     .fetchedCount(0)
                     .saved(0)
+                    .updated(0)
                     .build();
         }
 
@@ -89,6 +92,7 @@ public class HiraSyncService {
 
         int totalFetched = 0;
         int totalSaved = 0;
+        int totalUpdated = 0;
 
         for (String sidoCd : sidoCodes) {
             int pageNo = 1;
@@ -117,11 +121,13 @@ public class HiraSyncService {
                 }
 
                 int saved = hospitalPersistenceService.saveNewHospitals(items);
+                int updated = hospitalPersistenceService.updateExistingHospitals(items);
                 totalFetched += items.size();
                 totalSaved += saved;
+                totalUpdated += updated;
 
-                log.info("HIRA 동기화: sidoCd={}, pageNo={}, numOfRows={}, 조회={}, 신규저장={}",
-                        sidoCd, pageNo, numOfRows, items.size(), saved);
+                log.info("HIRA 동기화: sidoCd={}, pageNo={}, numOfRows={}, 조회={}, 신규저장={}, 기존갱신={}",
+                        sidoCd, pageNo, numOfRows, items.size(), saved, updated);
 
                 pageNo++;
             }
@@ -131,6 +137,7 @@ public class HiraSyncService {
                 .keyConfigured(true)
                 .fetchedCount(totalFetched)
                 .saved(totalSaved)
+                .updated(totalUpdated)
                 .build();
     }
 

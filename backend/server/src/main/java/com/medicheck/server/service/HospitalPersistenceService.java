@@ -12,6 +12,7 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -67,6 +68,48 @@ public class HospitalPersistenceService {
 
         hospitalRepository.saveAll(toSave);
         return toSave.size();
+    }
+
+    /**
+     * HIRA 응답 item 리스트 중 이미 DB에 있는 병원(ykiho 기준)을 HIRA 데이터로 갱신합니다.
+     * 한 번 호출이 하나의 트랜잭션으로 처리됩니다.
+     */
+    @Transactional
+    public int updateExistingHospitals(List<HiraHospItem> items) {
+        if (items == null || items.isEmpty()) {
+            return 0;
+        }
+        int updated = 0;
+        for (HiraHospItem item : items) {
+            String ykiho = trim(item.getYkiho(), 500);
+            if (ykiho == null || ykiho.isBlank()) continue;
+            Optional<Hospital> opt = hospitalRepository.findByPublicCode(ykiho);
+            if (opt.isEmpty()) continue;
+            Hospital h = opt.get();
+            applyHiraToHospital(item, h);
+            hospitalRepository.save(h);
+            updated++;
+        }
+        return updated;
+    }
+
+    private void applyHiraToHospital(HiraHospItem item, Hospital h) {
+        h.updateFromHira(
+                trim(item.getYadmNm(), 200),
+                trim(item.getAddr(), 500),
+                parseBigDecimal(toPosString(item.getYPos())),
+                parseBigDecimal(toPosString(item.getXPos())),
+                trim(item.getTelno(), 20),
+                trim(item.getClCdNm(), 100),
+                parseInteger(item.getDrTotCnt()),
+                parseEstbDd(item.getEstbDd()),
+                parseInteger(item.getMdeptSdrCnt()),
+                parseInteger(item.getMdeptGdrCnt()),
+                parseInteger(item.getMdeptIntnCnt()),
+                parseInteger(item.getMdeptResdntCnt()),
+                parseInteger(item.getDetySdrCnt()),
+                parseInteger(item.getCmdcSdrCnt())
+        );
     }
 
     private Hospital toHospital(HiraHospItem item) {
