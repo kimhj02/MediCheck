@@ -18,4 +18,7 @@ public class SyncResult {
 
     /** DB에 신규 저장된 건수 */
     private int saved;
+
+    /** 기존 행 HIRA 데이터로 갱신된 건수 */
+    private int updated;
 }

@@ -163,6 +163,48 @@ public class Hospital {
         this.updatedAt = LocalDateTime.now();
     }
 
+    /**
+     * HIRA API 데이터로 기존 행을 갱신합니다. publicCode/ykiho/id/createdAt 은 변경하지 않습니다.
+     * 모든 필드는 incoming 값이 non-null일 때만 갱신되므로, HIRA에서 누락된 필드는 기존 DB 값을 유지합니다.
+     */
+    public void updateFromHira(
+            String name,
+            String address,
+            BigDecimal latitude,
+            BigDecimal longitude,
+            String phone,
+            String department,
+            Integer doctorTotalCount,
+            LocalDate establishedDate,
+            Integer mdeptSpecialistCount,
+            Integer mdeptGeneralCount,
+            Integer mdeptInternCount,
+            Integer mdeptResidentCount,
+            Integer detySpecialistCount,
+            Integer cmdcSpecialistCount
+    ) {
+        if (name != null) {
+            this.name = name;
+            this.hospName = name;
+        }
+        if (address != null) this.address = address;
+        if (latitude != null) this.latitude = latitude;
+        if (longitude != null) this.longitude = longitude;
+        if (this.longitude != null || this.latitude != null) {
+            this.location = toPoint(this.longitude, this.latitude);
+        }
+        if (phone != null) this.phone = phone;
+        if (department != null) this.department = department;
+        if (doctorTotalCount != null) this.doctorTotalCount = doctorTotalCount;
+        if (establishedDate != null) this.establishedDate = establishedDate;
+        if (mdeptSpecialistCount != null) this.mdeptSpecialistCount = mdeptSpecialistCount;
+        if (mdeptGeneralCount != null) this.mdeptGeneralCount = mdeptGeneralCount;
+        if (mdeptInternCount != null) this.mdeptInternCount = mdeptInternCount;
+        if (mdeptResidentCount != null) this.mdeptResidentCount = mdeptResidentCount;
+        if (detySpecialistCount != null) this.detySpecialistCount = detySpecialistCount;
+        if (cmdcSpecialistCount != null) this.cmdcSpecialistCount = cmdcSpecialistCount;
+    }
+
     private static final GeometryFactory GEOMETRY_FACTORY = new GeometryFactory(new PrecisionModel(), 4326);
 
     private static Point toPoint(BigDecimal longitude, BigDecimal latitude) {

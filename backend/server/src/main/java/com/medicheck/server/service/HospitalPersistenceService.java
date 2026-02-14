@@ -11,7 +11,9 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -67,6 +69,61 @@ public class HospitalPersistenceService {
 
         hospitalRepository.saveAll(toSave);
         return toSave.size();
+    }
+
+    /**
+     * HIRA 응답 item 리스트 중 이미 DB에 있는 병원(ykiho 기준)을 HIRA 데이터로 갱신합니다.
+     * 한 번 호출이 하나의 트랜잭션으로 처리됩니다.
+     * N+1 방지를 위해 findAllByPublicCodeIn으로 일괄 조회 후 Map으로 매칭, 마지막에 saveAll로 일괄 저장합니다.
+     */
+    @Transactional
+    public int updateExistingHospitals(List<HiraHospItem> items) {
+        if (items == null || items.isEmpty()) {
+            return 0;
+        }
+        List<String> ykihoList = items.stream()
+                .map(HiraHospItem::getYkiho)
+                .map(y -> trim(y, 500))
+                .filter(y -> y != null && !y.isBlank())
+                .distinct()
+                .toList();
+        if (ykihoList.isEmpty()) return 0;
+
+        Map<String, Hospital> ykihoToHospital = hospitalRepository.findAllByPublicCodeIn(ykihoList).stream()
+                .collect(Collectors.toMap(Hospital::getPublicCode, h -> h, (a, b) -> a));
+
+        Map<Long, Hospital> updatedById = new HashMap<>();
+        for (HiraHospItem item : items) {
+            String ykiho = trim(item.getYkiho(), 500);
+            if (ykiho == null || ykiho.isBlank()) continue;
+            Hospital h = ykihoToHospital.get(ykiho);
+            if (h == null) continue;
+            applyHiraToHospital(item, h);
+            updatedById.put(h.getId(), h);
+        }
+        if (!updatedById.isEmpty()) {
+            hospitalRepository.saveAll(updatedById.values());
+        }
+        return updatedById.size();
+    }
+
+    private void applyHiraToHospital(HiraHospItem item, Hospital h) {
+        h.updateFromHira(
+                trim(item.getYadmNm(), 200),
+                trim(item.getAddr(), 500),
+                parseBigDecimal(toPosString(item.getYPos())),
+                parseBigDecimal(toPosString(item.getXPos())),
+                trim(item.getTelno(), 20),
+                trim(item.getClCdNm(), 100),
+                parseInteger(item.getDrTotCnt()),
+                parseEstbDd(item.getEstbDd()),
+                parseInteger(item.getMdeptSdrCnt()),
+                parseInteger(item.getMdeptGdrCnt()),
+                parseInteger(item.getMdeptIntnCnt()),
+                parseInteger(item.getMdeptResdntCnt()),
+                parseInteger(item.getDetySdrCnt()),
+                parseInteger(item.getCmdcSdrCnt())
+        );
     }
 
     private Hospital toHospital(HiraHospItem item) {
