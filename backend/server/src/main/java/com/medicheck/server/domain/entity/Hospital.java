@@ -165,6 +165,7 @@ public class Hospital {
 
     /**
      * HIRA API 데이터로 기존 행을 갱신합니다. publicCode/ykiho/id/createdAt 은 변경하지 않습니다.
+     * 모든 필드는 incoming 값이 non-null일 때만 갱신되므로, HIRA에서 누락된 필드는 기존 DB 값을 유지합니다.
      */
     public void updateFromHira(
             String name,
@@ -194,14 +195,14 @@ public class Hospital {
         }
         if (phone != null) this.phone = phone;
         if (department != null) this.department = department;
-        this.doctorTotalCount = doctorTotalCount;
-        this.establishedDate = establishedDate;
-        this.mdeptSpecialistCount = mdeptSpecialistCount;
-        this.mdeptGeneralCount = mdeptGeneralCount;
-        this.mdeptInternCount = mdeptInternCount;
-        this.mdeptResidentCount = mdeptResidentCount;
-        this.detySpecialistCount = detySpecialistCount;
-        this.cmdcSpecialistCount = cmdcSpecialistCount;
+        if (doctorTotalCount != null) this.doctorTotalCount = doctorTotalCount;
+        if (establishedDate != null) this.establishedDate = establishedDate;
+        if (mdeptSpecialistCount != null) this.mdeptSpecialistCount = mdeptSpecialistCount;
+        if (mdeptGeneralCount != null) this.mdeptGeneralCount = mdeptGeneralCount;
+        if (mdeptInternCount != null) this.mdeptInternCount = mdeptInternCount;
+        if (mdeptResidentCount != null) this.mdeptResidentCount = mdeptResidentCount;
+        if (detySpecialistCount != null) this.detySpecialistCount = detySpecialistCount;
+        if (cmdcSpecialistCount != null) this.cmdcSpecialistCount = cmdcSpecialistCount;
     }
 
     private static final GeometryFactory GEOMETRY_FACTORY = new GeometryFactory(new PrecisionModel(), 4326);
