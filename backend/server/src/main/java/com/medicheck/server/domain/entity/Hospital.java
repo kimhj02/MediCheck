@@ -189,8 +189,8 @@ public class Hospital {
         if (address != null) this.address = address;
         if (latitude != null) this.latitude = latitude;
         if (longitude != null) this.longitude = longitude;
-        if (longitude != null || latitude != null) {
-            this.location = toPoint(longitude, latitude);
+        if (this.longitude != null || this.latitude != null) {
+            this.location = toPoint(this.longitude, this.latitude);
         }
         if (phone != null) this.phone = phone;
         if (department != null) this.department = department;
