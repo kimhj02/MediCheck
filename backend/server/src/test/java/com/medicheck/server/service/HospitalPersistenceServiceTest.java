@@ -13,7 +13,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
 import java.util.List;
-import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -55,14 +54,15 @@ class HospitalPersistenceServiceTest {
                 .longitude(BigDecimal.valueOf(127.0))
                 .build();
 
-        given(hospitalRepository.findByPublicCode(ykiho)).willReturn(Optional.of(existing));
+        given(hospitalRepository.findAllByPublicCodeIn(List.of(ykiho))).willReturn(List.of(existing));
 
         int updated = hospitalPersistenceService.updateExistingHospitals(List.of(item));
 
         assertThat(updated).isEqualTo(1);
-        ArgumentCaptor<Hospital> captor = ArgumentCaptor.forClass(Hospital.class);
-        verify(hospitalRepository).save(captor.capture());
-        Hospital saved = captor.getValue();
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<Iterable<Hospital>> captor = ArgumentCaptor.forClass(Iterable.class);
+        verify(hospitalRepository).saveAll(captor.capture());
+        Hospital saved = captor.getValue().iterator().next();
         assertThat(saved.getName()).isEqualTo("갱신된병원명");
         assertThat(saved.getAddress()).isEqualTo("갱신된주소");
         assertThat(saved.getPhone()).isEqualTo("02-9999-8888");
@@ -75,13 +75,13 @@ class HospitalPersistenceServiceTest {
         HiraHospItem item = new HiraHospItem();
         item.setYkiho("NOEXIST");
         item.setYadmNm("병원명");
-        given(hospitalRepository.findByPublicCode("NOEXIST")).willReturn(Optional.empty());
+        given(hospitalRepository.findAllByPublicCodeIn(List.of("NOEXIST"))).willReturn(List.of());
 
         int updated = hospitalPersistenceService.updateExistingHospitals(List.of(item));
 
         assertThat(updated).isZero();
-        verify(hospitalRepository).findByPublicCode("NOEXIST");
-        verify(hospitalRepository, never()).save(any());
+        verify(hospitalRepository).findAllByPublicCodeIn(List.of("NOEXIST"));
+        verify(hospitalRepository, never()).saveAll(any());
     }
 
     @Test
@@ -89,6 +89,6 @@ class HospitalPersistenceServiceTest {
     void updateExistingHospitals_returns0ForEmptyList() {
         int updated = hospitalPersistenceService.updateExistingHospitals(List.of());
         assertThat(updated).isZero();
-        verify(hospitalRepository, never()).findByPublicCode(any());
+        verify(hospitalRepository, never()).findAllByPublicCodeIn(any());
     }
 }
