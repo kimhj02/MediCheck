@@ -39,7 +39,7 @@ public class DirectionsController {
      * 출발지 → 목적지 경로 조회.
      * origin/destination: WGS84 위도,경도 (lat,lng)
      * 반환: Polyline 좌표 배열 [[lat,lng], ...] (카카오맵 LatLng 순서)
-     * 호출 제한: 30회/분 (IP/클라이언트당, 카카오 API 쿼터 보호)
+     * 호출 제한: Resilience4j {@literal @}RateLimiter("directions")로 서버 전역 30회/분 적용 (IP·클라이언트별 아님).
      */
     @GetMapping
     @RateLimiter(name = "directions")
