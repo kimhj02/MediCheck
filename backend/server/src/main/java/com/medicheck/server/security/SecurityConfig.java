@@ -32,7 +32,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.POST, "/api/hospitals/sync", "/api/hospitals/sync/all", "/api/hospitals/sync/region", "/api/hospitals/sync/location")
                         .hasRole("ADMIN")
-                        .requestMatchers("/api/hospitals/**", "/swagger-ui/**", "/swagger-ui.html",
+                        .requestMatchers("/api/hospitals/**", "/api/directions/**", "/swagger-ui/**", "/swagger-ui.html",
                                 "/v3/api-docs/**", "/error")
                         .permitAll()
                         .anyRequest()

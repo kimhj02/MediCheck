@@ -25,6 +25,11 @@ admin:
 
 # 건강보험심사평가원 병원정보 Open API (공공데이터포털 인증키)
 # 로컬: application-local.yaml 에 service-key 넣고 프로필 local 로 실행
+# 카카오모빌리티 길찾기 API (developers.kakao.com → 앱 → REST API 키)
+kakao:
+  mobility:
+    rest-api-key: ${KAKAO_MOBILITY_REST_API_KEY:}
+
 hira:
   api:
     # 공공데이터포털 개발계정 상세보기 기준: v2, getHospBasisList

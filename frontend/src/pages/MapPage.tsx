@@ -1,10 +1,11 @@
-import { useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { fetchNearbyHospitals } from '../api/hospitals'
 import { HospitalMap, type HospitalMapHandle } from '../components/HospitalMap'
 import { HospitalListItem } from '../components/HospitalListItem'
 import { useGeolocation } from '../hooks/useGeolocation'
 import { useKakaoMapScript } from '../hooks/useKakaoMapScript'
+import type { NearbyHospital } from '../types/hospital'
 
 const RADIUS_OPTIONS = [
   { value: 1000, label: '1km' },
@@ -13,9 +14,34 @@ const RADIUS_OPTIONS = [
   { value: 10000, label: '10km' },
 ]
 
+function filterHospitals(
+  items: NearbyHospital[],
+  keyword: string,
+  department: string
+): NearbyHospital[] {
+  let result = items
+  if (keyword.trim()) {
+    const k = keyword.trim().toLowerCase()
+    result = result.filter(
+      (i) =>
+        i.hospital.name.toLowerCase().includes(k) ||
+        (i.hospital.address?.toLowerCase().includes(k) ?? false) ||
+        (i.hospital.department?.toLowerCase().includes(k) ?? false)
+    )
+  }
+  if (department) {
+    result = result.filter(
+      (i) => i.hospital.department?.toLowerCase().includes(department.toLowerCase()) ?? false
+    )
+  }
+  return result
+}
+
 export function MapPage() {
   const [radius, setRadius] = useState(3000)
   const [isListOpen, setIsListOpen] = useState(true)
+  const [searchKeyword, setSearchKeyword] = useState('')
+  const [departmentFilter, setDepartmentFilter] = useState('')
   const mapRef = useRef<HospitalMapHandle>(null)
 
   const { loaded: mapLoaded, error: mapError } = useKakaoMapScript()
@@ -26,6 +52,19 @@ export function MapPage() {
     queryFn: () => fetchNearbyHospitals(latitude!, longitude!, radius),
     enabled: !!latitude && !!longitude,
   })
+
+  const departments = useMemo(() => {
+    const set = new Set<string>()
+    hospitals.forEach((i) => {
+      if (i.hospital.department?.trim()) set.add(i.hospital.department.trim())
+    })
+    return Array.from(set).sort()
+  }, [hospitals])
+
+  const filteredHospitals = useMemo(
+    () => filterHospitals(hospitals, searchKeyword, departmentFilter),
+    [hospitals, searchKeyword, departmentFilter]
+  )
 
   if (mapError) {
     return (
@@ -98,6 +137,28 @@ export function MapPage() {
               <span aria-hidden>📍</span>
               내 위치로 이동
             </button>
+
+            <div className="mt-3 space-y-2">
+              <input
+                type="search"
+                placeholder="병원명, 주소, 진료과 검색"
+                value={searchKeyword}
+                onChange={(e) => setSearchKeyword(e.target.value)}
+                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-400 focus:border-transparent"
+              />
+              <select
+                value={departmentFilter}
+                onChange={(e) => setDepartmentFilter(e.target.value)}
+                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-400 focus:border-transparent bg-white"
+              >
+                <option value="">전체 진료과</option>
+                {departments.map((d) => (
+                  <option key={d} value={d}>
+                    {d}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
           <div className="p-2 space-y-1 flex-1 overflow-y-auto">
             {hospitalsLoading ? (
@@ -106,8 +167,12 @@ export function MapPage() {
               </div>
             ) : hospitals.length === 0 ? (
               <div className="text-center py-8 text-gray-400 text-sm">병원이 없습니다</div>
+            ) : filteredHospitals.length === 0 ? (
+              <div className="text-center py-8 text-gray-400 text-sm">
+                검색 결과가 없습니다
+              </div>
             ) : (
-              hospitals.map((item) => (
+              filteredHospitals.map((item) => (
                 <HospitalListItem
                   key={item.hospital.id}
                   item={item}
@@ -125,7 +190,7 @@ export function MapPage() {
           ref={mapRef}
           centerLat={latitude}
           centerLng={longitude}
-          hospitals={hospitals}
+          hospitals={filteredHospitals}
         />
 
         {/* 플로팅 컨트롤 */}
@@ -148,7 +213,11 @@ export function MapPage() {
           </div>
           <div className="pointer-events-auto flex items-center gap-2">
             <div className="px-4 py-2 bg-white/95 rounded-xl shadow text-sm text-gray-600">
-              <span className="font-semibold text-sky-600">{hospitals.length}</span>개 병원
+              <span className="font-semibold text-sky-600">{filteredHospitals.length}</span>
+              {filteredHospitals.length !== hospitals.length
+                ? ` / ${hospitals.length}`
+                : ''}
+              개 병원
             </div>
             {!isListOpen && (
               <button
