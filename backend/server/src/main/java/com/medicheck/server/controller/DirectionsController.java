@@ -1,6 +1,7 @@
 package com.medicheck.server.controller;
 
 import com.medicheck.server.config.KakaoMobilityProperties;
+import io.github.resilience4j.ratelimiter.annotation.RateLimiter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.ResponseEntity;
@@ -38,14 +39,29 @@ public class DirectionsController {
      * 출발지 → 목적지 경로 조회.
      * origin/destination: WGS84 위도,경도 (lat,lng)
      * 반환: Polyline 좌표 배열 [[lat,lng], ...] (카카오맵 LatLng 순서)
+     * 호출 제한: 30회/분 (IP/클라이언트당, 카카오 API 쿼터 보호)
      */
     @GetMapping
+    @RateLimiter(name = "directions")
     public ResponseEntity<?> getDirections(
             @RequestParam("originLat") double originLat,
             @RequestParam("originLng") double originLng,
             @RequestParam("destLat") double destLat,
             @RequestParam("destLng") double destLng
     ) {
+        if (!isValidLat(originLat) || !isValidLng(originLng)) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "error", "invalid_origin",
+                    "message", "출발지 좌표가 올바르지 않습니다. 위도(-90~90), 경도(-180~180) 범위를 확인하세요."
+            ));
+        }
+        if (!isValidLat(destLat) || !isValidLng(destLng)) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "error", "invalid_destination",
+                    "message", "목적지 좌표가 올바르지 않습니다. 위도(-90~90), 경도(-180~180) 범위를 확인하세요."
+            ));
+        }
+
         String key = kakaoMobilityProperties.getRestApiKey();
         if (key == null || key.isBlank()) {
             return ResponseEntity.status(503).body(Map.of(
@@ -105,6 +121,14 @@ public class DirectionsController {
                     "message", e.getMessage()
             ));
         }
+    }
+
+    private static boolean isValidLat(double lat) {
+        return lat >= -90 && lat <= 90;
+    }
+
+    private static boolean isValidLng(double lng) {
+        return lng >= -180 && lng <= 180;
     }
 
     @SuppressWarnings("unchecked")
