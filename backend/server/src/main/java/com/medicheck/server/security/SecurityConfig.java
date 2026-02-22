@@ -22,6 +22,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfig {
 
     private final XAdminKeyAuthFilter xAdminKeyAuthFilter;
+    private final PerIPDirectionsRateLimitFilter perIPDirectionsRateLimitFilter;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -30,14 +31,15 @@ public class SecurityConfig {
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(HttpMethod.POST, "/api/hospitals/sync", "/api/hospitals/sync/all")
+                        .requestMatchers(HttpMethod.POST, "/api/hospitals/sync", "/api/hospitals/sync/all", "/api/hospitals/sync/region", "/api/hospitals/sync/location")
                         .hasRole("ADMIN")
-                        .requestMatchers("/api/hospitals/**", "/swagger-ui/**", "/swagger-ui.html",
+                        .requestMatchers("/api/hospitals/**", "/api/directions/**", "/swagger-ui/**", "/swagger-ui.html",
                                 "/v3/api-docs/**", "/error")
                         .permitAll()
                         .anyRequest()
                         .authenticated()
                 )
+                .addFilterBefore(perIPDirectionsRateLimitFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(xAdminKeyAuthFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }

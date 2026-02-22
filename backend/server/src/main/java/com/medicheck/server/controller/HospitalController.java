@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 /**
  * 안심 병원 API.
@@ -30,6 +31,9 @@ import java.util.Map;
 @RequiredArgsConstructor
 @Slf4j
 public class HospitalController {
+
+    private static final int SIDO_CD_MAX_LENGTH = 20;
+    private static final Pattern SIDO_CD_PATTERN = Pattern.compile("^[0-9]{1," + SIDO_CD_MAX_LENGTH + "}$");
 
     private final HospitalService hospitalService;
     private final HiraSyncService hiraSyncService;
@@ -95,6 +99,63 @@ public class HospitalController {
             log.error("HIRA 동기화 실패 errorId={}", errorId, e);
             return ResponseEntity.status(500).body(Map.of(
                     "error", "sync failed",
+                    "message", "internal server error",
+                    "errorId", errorId
+            ));
+        }
+    }
+
+    /**
+     * 지정 좌표 반경 내 병원을 HIRA에서 조회해 DB에 동기화합니다.
+     * 구미 옥계동: lat=36.127, lng=128.375, radiusMeters=50000
+     * POST /api/hospitals/sync/location?lat=36.127&lng=128.375&radiusMeters=50000
+     */
+    @PostMapping("/sync/location")
+    public ResponseEntity<?> syncByLocation(
+            @RequestParam("lat") double lat,
+            @RequestParam("lng") double lng,
+            @RequestParam(defaultValue = "50000") int radiusMeters,
+            @RequestParam(defaultValue = "500") int numOfRows
+    ) {
+        try {
+            SyncResult result = hiraSyncService.syncByLocation(lat, lng, radiusMeters, numOfRows);
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            String errorId = java.util.UUID.randomUUID().toString();
+            log.error("HIRA 위치 동기화 실패 errorId={}", errorId, e);
+            return ResponseEntity.status(500).body(Map.of(
+                    "error", "sync-location failed",
+                    "message", "internal server error",
+                    "errorId", errorId
+            ));
+        }
+    }
+
+    /**
+     * 지정 시·도 병원 정보만 HIRA에서 조회해 DB에 동기화합니다.
+     * 구미(경북): sidoCd=470000
+     * POST /api/hospitals/sync/region?sidoCd=470000&numOfRows=500
+     */
+    @PostMapping("/sync/region")
+    public ResponseEntity<?> syncRegionFromHira(
+            @RequestParam("sidoCd") String sidoCd,
+            @RequestParam(defaultValue = "500") int numOfRows
+    ) {
+        String sanitized = sidoCd != null ? sidoCd.trim() : "";
+        if (sanitized.isEmpty() || !SIDO_CD_PATTERN.matcher(sanitized).matches()) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "error", "invalid_sido_cd",
+                    "message", "sidoCd는 1~20자리 숫자만 허용됩니다."
+            ));
+        }
+        try {
+            SyncResult result = hiraSyncService.syncRegion(sanitized, numOfRows);
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            String errorId = java.util.UUID.randomUUID().toString();
+            log.error("HIRA 지역 동기화 실패 errorId={}", errorId, e);
+            return ResponseEntity.status(500).body(Map.of(
+                    "error", "sync-region failed",
                     "message", "internal server error",
                     "errorId", errorId
             ));

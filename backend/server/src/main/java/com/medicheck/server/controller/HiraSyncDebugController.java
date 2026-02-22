@@ -25,13 +25,17 @@ public class HiraSyncDebugController {
 
     /**
      * HIRA API 원문 응답 확인 (디버그용). GET /api/hospitals/sync/debug
+     * 경북: ?sidoCd=470000
      */
     @GetMapping("/sync/debug")
     public ResponseEntity<Map<String, Object>> syncDebug(
             @RequestParam(defaultValue = "1") int pageNo,
-            @RequestParam(defaultValue = "10") int numOfRows
+            @RequestParam(defaultValue = "10") int numOfRows,
+            @RequestParam(required = false) String sidoCd
     ) {
-        HiraHospitalClient.RawResponseResult r = hiraHospitalClient.getRawResponse(pageNo, numOfRows);
+        HiraHospitalClient.RawResponseResult r = (sidoCd != null && !sidoCd.isBlank())
+                ? hiraHospitalClient.getRawResponse(pageNo, numOfRows, sidoCd)
+                : hiraHospitalClient.getRawResponse(pageNo, numOfRows);
         return ResponseEntity.ok(Map.of(
                 "keyConfigured", r.keyConfigured(),
                 "rawResponse", r.rawResponse() != null ? r.rawResponse() : "",

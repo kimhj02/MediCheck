@@ -38,9 +38,9 @@ public class HiraSyncService {
                 && !hiraApiProperties.getServiceKey().isBlank();
 
         List<HiraHospItem> items = hiraHospitalClient.getHospBasisList(pageNo, numOfRows);
-        // 기존 행 갱신 → 신규 행 저장 순서로 호출. 반대 순서면 신규 저장된 행이 update 대상에 포함되어 updated 수가 부풀어오름
-        int updated = hospitalPersistenceService.updateExistingHospitals(items);
-        int saved = hospitalPersistenceService.saveNewHospitals(items);
+        var counts = hospitalPersistenceService.persistHospitals(items);
+        int updated = counts.updated();
+        int saved = counts.saved();
 
         log.info("HIRA 동기화(서울 기본): pageNo={}, numOfRows={}, 조회={}, 신규저장={}, 기존갱신={}",
                 pageNo, numOfRows, items.size(), saved, updated);
@@ -121,9 +121,9 @@ public class HiraSyncService {
                     break;
                 }
 
-                // 기존 행 갱신 → 신규 행 저장 순서 (syncFromHira와 동일)
-                int updated = hospitalPersistenceService.updateExistingHospitals(items);
-                int saved = hospitalPersistenceService.saveNewHospitals(items);
+                var counts = hospitalPersistenceService.persistHospitals(items);
+                int updated = counts.updated();
+                int saved = counts.saved();
                 totalFetched += items.size();
                 totalSaved += saved;
                 totalUpdated += updated;
@@ -133,6 +133,115 @@ public class HiraSyncService {
 
                 pageNo++;
             }
+        }
+
+        return SyncResult.builder()
+                .keyConfigured(true)
+                .fetchedCount(totalFetched)
+                .saved(totalSaved)
+                .updated(totalUpdated)
+                .build();
+    }
+
+    /**
+     * 지정 좌표(위·경도) 반경 내 병원을 HIRA에서 조회해 DB에 동기화합니다.
+     * 구미 옥계동 예: yPos=36.127, xPos=128.375, radius=50000
+     */
+    public SyncResult syncByLocation(double latitude, double longitude, int radiusMeters, int numOfRows) {
+        boolean keyConfigured = hiraApiProperties.getServiceKey() != null
+                && !hiraApiProperties.getServiceKey().isBlank();
+        if (!keyConfigured) {
+            return SyncResult.builder()
+                    .keyConfigured(false)
+                    .fetchedCount(0)
+                    .saved(0)
+                    .updated(0)
+                    .build();
+        }
+
+        int totalFetched = 0;
+        int totalSaved = 0;
+        int totalUpdated = 0;
+        int pageNo = 1;
+
+        while (pageNo <= MAX_PAGE) {
+            List<HiraHospItem> items = hiraHospitalClient.getHospBasisList(
+                    pageNo, numOfRows,
+                    null, null, null, null,
+                    String.valueOf(longitude),
+                    String.valueOf(latitude),
+                    radiusMeters
+            );
+
+            if (items.isEmpty()) {
+                log.info("HIRA 위치 동기화 종료: lat={}, lng={}, pageNo={}", latitude, longitude, pageNo);
+                break;
+            }
+
+            var counts = hospitalPersistenceService.persistHospitals(items);
+            int updated = counts.updated();
+            int saved = counts.saved();
+            totalFetched += items.size();
+            totalSaved += saved;
+            totalUpdated += updated;
+
+            log.info("HIRA 위치 동기화: pageNo={}, 조회={}, 신규={}, 갱신={}", pageNo, items.size(), saved, updated);
+            pageNo++;
+        }
+
+        return SyncResult.builder()
+                .keyConfigured(true)
+                .fetchedCount(totalFetched)
+                .saved(totalSaved)
+                .updated(totalUpdated)
+                .build();
+    }
+
+    /**
+     * 지정된 시·도 코드의 병원 정보만 HIRA에서 조회해 DB에 동기화합니다.
+     * 구미(경북) 예: sidoCd=470000
+     *
+     * @param sidoCd    시·도 코드 (예: 470000 경상북도)
+     * @param numOfRows 페이지당 조회 건수
+     */
+    public SyncResult syncRegion(String sidoCd, int numOfRows) {
+        boolean keyConfigured = hiraApiProperties.getServiceKey() != null
+                && !hiraApiProperties.getServiceKey().isBlank();
+        if (!keyConfigured) {
+            return SyncResult.builder()
+                    .keyConfigured(false)
+                    .fetchedCount(0)
+                    .saved(0)
+                    .updated(0)
+                    .build();
+        }
+
+        int totalFetched = 0;
+        int totalSaved = 0;
+        int totalUpdated = 0;
+        int pageNo = 1;
+
+        while (pageNo <= MAX_PAGE) {
+            List<HiraHospItem> items = hiraHospitalClient.getHospBasisList(
+                    pageNo, numOfRows, sidoCd,
+                    null, null, null, null, null, null
+            );
+
+            if (items.isEmpty()) {
+                log.info("HIRA 지역 동기화 종료: sidoCd={}, pageNo={}", sidoCd, pageNo);
+                break;
+            }
+
+            var counts = hospitalPersistenceService.persistHospitals(items);
+            int updated = counts.updated();
+            int saved = counts.saved();
+            totalFetched += items.size();
+            totalSaved += saved;
+            totalUpdated += updated;
+
+            log.info("HIRA 지역 동기화: sidoCd={}, pageNo={}, 조회={}, 신규={}, 갱신={}",
+                    sidoCd, pageNo, items.size(), saved, updated);
+            pageNo++;
         }
 
         return SyncResult.builder()
