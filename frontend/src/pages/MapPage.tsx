@@ -120,6 +120,8 @@ export function MapPage() {
         className={`shrink-0 bg-white border-r border-gray-100 shadow-sm transition-all duration-300 ${
           isListOpen ? 'w-80' : 'w-0 overflow-hidden'
         }`}
+        inert={!isListOpen || undefined}
+        aria-hidden={!isListOpen}
       >
         <div className="h-full flex flex-col">
           <div className="p-4 border-b border-gray-100">
