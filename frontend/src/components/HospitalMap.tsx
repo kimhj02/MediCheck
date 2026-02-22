@@ -60,6 +60,7 @@ export const HospitalMap = forwardRef<HospitalMapHandle, HospitalMapProps>(
     const routePolylineRef = useRef<{ setMap: (m: unknown) => void } | null>(null)
     const [routeInfo, setRouteInfo] = useState<{ duration: number; distance: number } | null>(null)
     const overlayRef = useRef<{ setMap: (m: unknown) => void } | null>(null)
+    const markersRef = useRef<Array<{ setMap: (m: unknown) => void }>>([])
     const ignoreMapClickRef = useRef(false)
 
     const panToWithAnimation = (targetLat: number, targetLng: number) => {
@@ -232,12 +233,8 @@ export const HospitalMap = forwardRef<HospitalMapHandle, HospitalMapProps>(
       const map = mapRef.current
       if (!map || !window.kakao?.maps) return
 
-      const cleanup = () => {
-        if (overlayRef.current) {
-          overlayRef.current.setMap(null)
-          overlayRef.current = null
-        }
-      }
+      markersRef.current.forEach((m) => m.setMap(null))
+      markersRef.current = []
 
       hospitals.forEach((item) => {
         const h = item.hospital
@@ -248,11 +245,15 @@ export const HospitalMap = forwardRef<HospitalMapHandle, HospitalMapProps>(
         const marker = new kakao.maps.Marker({
           position: new kakao.maps.LatLng(lat, lng),
           map,
-        })
+        }) as { setMap: (m: unknown) => void }
+        markersRef.current.push(marker)
 
         kakao.maps.event.addListener(marker, 'click', () => {
           ignoreMapClickRef.current = true
-          cleanup()
+          if (overlayRef.current) {
+            overlayRef.current.setMap(null)
+            overlayRef.current = null
+          }
 
           const overlay = new kakao.maps.CustomOverlay({
             content: buildInfoWindowHtml({ hospital: h, distanceMeters: item.distanceMeters }),
@@ -268,7 +269,14 @@ export const HospitalMap = forwardRef<HospitalMapHandle, HospitalMapProps>(
         })
       })
 
-      return cleanup
+      return () => {
+        markersRef.current.forEach((m) => m.setMap(null))
+        markersRef.current = []
+        if (overlayRef.current) {
+          overlayRef.current.setMap(null)
+          overlayRef.current = null
+        }
+      }
     }, [hospitals])
 
     return (
