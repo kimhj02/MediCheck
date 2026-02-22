@@ -47,7 +47,13 @@ export function MapPage() {
   const { loaded: mapLoaded, error: mapError } = useKakaoMapScript()
   const { latitude, longitude, loading: geoLoading, error: geoError } = useGeolocation()
 
-  const { data: hospitals = [], isLoading: hospitalsLoading } = useQuery({
+  const {
+    data: hospitals = [],
+    isLoading: hospitalsLoading,
+    isError,
+    error,
+    refetch,
+  } = useQuery({
     queryKey: ['nearbyHospitals', latitude, longitude, radius],
     queryFn: () => fetchNearbyHospitals(latitude!, longitude!, radius),
     enabled: !!latitude && !!longitude,
@@ -164,6 +170,20 @@ export function MapPage() {
             {hospitalsLoading ? (
               <div className="flex justify-center py-8">
                 <div className="w-6 h-6 border-2 border-sky-400 border-t-transparent rounded-full animate-spin" />
+              </div>
+            ) : isError ? (
+              <div className="flex flex-col items-center justify-center py-8 px-4 text-center">
+                <div className="text-amber-600 font-medium">병원 목록을 불러오지 못했습니다</div>
+                <p className="mt-2 text-sm text-gray-500">
+                  {error instanceof Error ? error.message : '다시 시도해 주세요.'}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => refetch()}
+                  className="mt-4 px-4 py-2 rounded-lg bg-sky-500 hover:bg-sky-600 text-white text-sm font-medium"
+                >
+                  다시 시도
+                </button>
               </div>
             ) : hospitals.length === 0 ? (
               <div className="text-center py-8 text-gray-400 text-sm">병원이 없습니다</div>
