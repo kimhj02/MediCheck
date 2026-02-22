@@ -107,6 +107,19 @@ public class HospitalPersistenceService {
         return updatedById.size();
     }
 
+    /**
+     * 기존 병원 갱신 + 신규 병원 저장을 하나의 트랜잭션에서 원자적으로 수행합니다.
+     * HIRA 동기화 시 부분 커밋을 방지합니다.
+     */
+    @Transactional
+    public PersistCounts persistHospitals(List<HiraHospItem> items) {
+        int updated = updateExistingHospitals(items);
+        int saved = saveNewHospitals(items);
+        return new PersistCounts(updated, saved);
+    }
+
+    public record PersistCounts(int updated, int saved) {}
+
     private void applyHiraToHospital(HiraHospItem item, Hospital h) {
         h.updateFromHira(
                 trim(item.getYadmNm(), 200),

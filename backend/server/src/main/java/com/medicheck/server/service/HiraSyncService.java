@@ -38,9 +38,9 @@ public class HiraSyncService {
                 && !hiraApiProperties.getServiceKey().isBlank();
 
         List<HiraHospItem> items = hiraHospitalClient.getHospBasisList(pageNo, numOfRows);
-        // 기존 행 갱신 → 신규 행 저장 순서로 호출. 반대 순서면 신규 저장된 행이 update 대상에 포함되어 updated 수가 부풀어오름
-        int updated = hospitalPersistenceService.updateExistingHospitals(items);
-        int saved = hospitalPersistenceService.saveNewHospitals(items);
+        var counts = hospitalPersistenceService.persistHospitals(items);
+        int updated = counts.updated();
+        int saved = counts.saved();
 
         log.info("HIRA 동기화(서울 기본): pageNo={}, numOfRows={}, 조회={}, 신규저장={}, 기존갱신={}",
                 pageNo, numOfRows, items.size(), saved, updated);
@@ -121,9 +121,9 @@ public class HiraSyncService {
                     break;
                 }
 
-                // 기존 행 갱신 → 신규 행 저장 순서 (syncFromHira와 동일)
-                int updated = hospitalPersistenceService.updateExistingHospitals(items);
-                int saved = hospitalPersistenceService.saveNewHospitals(items);
+                var counts = hospitalPersistenceService.persistHospitals(items);
+                int updated = counts.updated();
+                int saved = counts.saved();
                 totalFetched += items.size();
                 totalSaved += saved;
                 totalUpdated += updated;
@@ -178,8 +178,9 @@ public class HiraSyncService {
                 break;
             }
 
-            int updated = hospitalPersistenceService.updateExistingHospitals(items);
-            int saved = hospitalPersistenceService.saveNewHospitals(items);
+            var counts = hospitalPersistenceService.persistHospitals(items);
+            int updated = counts.updated();
+            int saved = counts.saved();
             totalFetched += items.size();
             totalSaved += saved;
             totalUpdated += updated;
@@ -231,8 +232,9 @@ public class HiraSyncService {
                 break;
             }
 
-            int updated = hospitalPersistenceService.updateExistingHospitals(items);
-            int saved = hospitalPersistenceService.saveNewHospitals(items);
+            var counts = hospitalPersistenceService.persistHospitals(items);
+            int updated = counts.updated();
+            int saved = counts.saved();
             totalFetched += items.size();
             totalSaved += saved;
             totalUpdated += updated;
