@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 /**
  * 안심 병원 API.
@@ -30,6 +31,9 @@ import java.util.Map;
 @RequiredArgsConstructor
 @Slf4j
 public class HospitalController {
+
+    private static final int SIDO_CD_MAX_LENGTH = 20;
+    private static final Pattern SIDO_CD_PATTERN = Pattern.compile("^[0-9]{1," + SIDO_CD_MAX_LENGTH + "}$");
 
     private final HospitalService hospitalService;
     private final HiraSyncService hiraSyncService;
@@ -137,12 +141,19 @@ public class HospitalController {
             @RequestParam("sidoCd") String sidoCd,
             @RequestParam(defaultValue = "500") int numOfRows
     ) {
+        String sanitized = sidoCd != null ? sidoCd.trim() : "";
+        if (sanitized.isEmpty() || !SIDO_CD_PATTERN.matcher(sanitized).matches()) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "error", "invalid_sido_cd",
+                    "message", "sidoCd는 1~20자리 숫자만 허용됩니다."
+            ));
+        }
         try {
-            SyncResult result = hiraSyncService.syncRegion(sidoCd, numOfRows);
+            SyncResult result = hiraSyncService.syncRegion(sanitized, numOfRows);
             return ResponseEntity.ok(result);
         } catch (Exception e) {
             String errorId = java.util.UUID.randomUUID().toString();
-            log.error("HIRA 지역 동기화 실패 errorId={}, sidoCd={}", errorId, sidoCd, e);
+            log.error("HIRA 지역 동기화 실패 errorId={}", errorId, e);
             return ResponseEntity.status(500).body(Map.of(
                     "error", "sync-region failed",
                     "message", "internal server error",
