@@ -1,7 +1,7 @@
 package com.medicheck.server.security;
 
-import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.medicheck.server.config.DirectionsRateLimitProperties;
 import io.github.resilience4j.ratelimiter.RateLimiter;
 import io.github.resilience4j.ratelimiter.RateLimiterConfig;
@@ -25,11 +25,9 @@ public class PerIPDirectionsRateLimitFilter extends OncePerRequestFilter {
 
     private static final String DIRECTIONS_PATH = "/api/directions";
 
-    private final Cache<String, RateLimiter> limiters;
-    private final DirectionsRateLimitProperties props;
+    private final LoadingCache<String, RateLimiter> limiters;
 
     public PerIPDirectionsRateLimitFilter(DirectionsRateLimitProperties props) {
-        this.props = props;
         RateLimiterConfig config = RateLimiterConfig.custom()
                 .limitForPeriod(props.getPerClientLimitForPeriod())
                 .limitRefreshPeriod(props.getPerClientRefreshPeriod())
@@ -54,9 +52,7 @@ public class PerIPDirectionsRateLimitFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
         String clientIp = resolveClientIp(request);
-        RateLimiter limiter = limiters.get(clientIp, k -> {
-            throw new IllegalStateException("Caffeine loader should always provide value");
-        });
+        RateLimiter limiter = limiters.get(clientIp);
 
         if (!limiter.acquirePermission()) {
             response.setStatus(429); // TOO_MANY_REQUESTS
