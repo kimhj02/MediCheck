@@ -30,7 +30,7 @@ public class SecurityConfig {
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(HttpMethod.POST, "/api/hospitals/sync", "/api/hospitals/sync/all")
+                        .requestMatchers(HttpMethod.POST, "/api/hospitals/sync", "/api/hospitals/sync/all", "/api/hospitals/sync/region", "/api/hospitals/sync/location")
                         .hasRole("ADMIN")
                         .requestMatchers("/api/hospitals/**", "/swagger-ui/**", "/swagger-ui.html",
                                 "/v3/api-docs/**", "/error")

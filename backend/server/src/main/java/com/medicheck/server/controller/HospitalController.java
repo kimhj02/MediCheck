@@ -102,6 +102,56 @@ public class HospitalController {
     }
 
     /**
+     * 지정 좌표 반경 내 병원을 HIRA에서 조회해 DB에 동기화합니다.
+     * 구미 옥계동: lat=36.127, lng=128.375, radiusMeters=50000
+     * POST /api/hospitals/sync/location?lat=36.127&lng=128.375&radiusMeters=50000
+     */
+    @PostMapping("/sync/location")
+    public ResponseEntity<?> syncByLocation(
+            @RequestParam("lat") double lat,
+            @RequestParam("lng") double lng,
+            @RequestParam(defaultValue = "50000") int radiusMeters,
+            @RequestParam(defaultValue = "500") int numOfRows
+    ) {
+        try {
+            SyncResult result = hiraSyncService.syncByLocation(lat, lng, radiusMeters, numOfRows);
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            String errorId = java.util.UUID.randomUUID().toString();
+            log.error("HIRA 위치 동기화 실패 errorId={}", errorId, e);
+            return ResponseEntity.status(500).body(Map.of(
+                    "error", "sync-location failed",
+                    "message", "internal server error",
+                    "errorId", errorId
+            ));
+        }
+    }
+
+    /**
+     * 지정 시·도 병원 정보만 HIRA에서 조회해 DB에 동기화합니다.
+     * 구미(경북): sidoCd=470000
+     * POST /api/hospitals/sync/region?sidoCd=470000&numOfRows=500
+     */
+    @PostMapping("/sync/region")
+    public ResponseEntity<?> syncRegionFromHira(
+            @RequestParam("sidoCd") String sidoCd,
+            @RequestParam(defaultValue = "500") int numOfRows
+    ) {
+        try {
+            SyncResult result = hiraSyncService.syncRegion(sidoCd, numOfRows);
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            String errorId = java.util.UUID.randomUUID().toString();
+            log.error("HIRA 지역 동기화 실패 errorId={}, sidoCd={}", errorId, sidoCd, e);
+            return ResponseEntity.status(500).body(Map.of(
+                    "error", "sync-region failed",
+                    "message", "internal server error",
+                    "errorId", errorId
+            ));
+        }
+    }
+
+    /**
      * 전국 시·도 병원 정보를 HIRA에서 조회해 DB에 동기화합니다.
      * 페이지 수는 HIRA 응답이 끝날 때까지 자동으로 순회합니다.
      * POST /api/hospitals/sync/all?numOfRows=500
