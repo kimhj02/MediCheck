@@ -263,6 +263,8 @@ export const HospitalMap = forwardRef<HospitalMapHandle, HospitalMapProps>(
           })
           overlay.setMap(map)
           overlayRef.current = overlay
+
+          panToWithAnimation(lat, lng)
         })
       })
 
