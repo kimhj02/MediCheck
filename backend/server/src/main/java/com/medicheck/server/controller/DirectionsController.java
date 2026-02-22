@@ -119,7 +119,7 @@ public class DirectionsController {
             log.warn("Kakao Mobility Directions API 호출 실패", e);
             return ResponseEntity.status(502).body(Map.of(
                     "error", "api_error",
-                    "message", e.getMessage()
+                    "message", "길찾기 서비스를 일시적으로 사용할 수 없습니다."
             ));
         }
     }
