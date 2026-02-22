@@ -19,12 +19,21 @@ spring:
       enabled: false
 
 # 동기화 API 호출 시 필요한 관리자 키 (헤더 X-Admin-Key 와 일치해야 함).
-# 기본값 없음. 반드시 admin.sync-key 또는 환경변수 ADMIN_SYNC_KEY 로 설정해야 기동 가능.
+# 로컬: 기본값 사용. 운영: 반드시 환경변수 ADMIN_SYNC_KEY 로 덮어써야 함.
 admin:
-  sync-key: ${ADMIN_SYNC_KEY:}
+  sync-key: ${ADMIN_SYNC_KEY:local-dev-key}
 
 # 건강보험심사평가원 병원정보 Open API (공공데이터포털 인증키)
 # 로컬: application-local.yaml 에 service-key 넣고 프로필 local 로 실행
+# Resilience4j - 길찾기 API 호출 제한 (쿼터 보호)
+resilience4j:
+  ratelimiter:
+    instances:
+      directions:
+        limitForPeriod: 30          # 기간당 최대 호출 수
+        limitRefreshPeriod: 1m      # 제한 갱신 주기
+        timeoutDuration: 0          # 대기하지 않고 즉시 거부
+
 # 카카오모빌리티 길찾기 API (developers.kakao.com → 앱 → REST API 키)
 kakao:
   mobility:
