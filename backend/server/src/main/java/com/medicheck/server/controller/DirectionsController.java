@@ -1,8 +1,8 @@
 package com.medicheck.server.controller;
 
 import com.medicheck.server.config.KakaoMobilityProperties;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -20,12 +20,17 @@ import java.util.Map;
  */
 @RestController
 @RequestMapping("/api/directions")
-@RequiredArgsConstructor
 @Slf4j
 public class DirectionsController {
 
     private final KakaoMobilityProperties kakaoMobilityProperties;
-    private final RestTemplate restTemplate = new RestTemplate();
+    private final RestTemplate restTemplate;
+
+    public DirectionsController(KakaoMobilityProperties kakaoMobilityProperties,
+                               @Qualifier("kakaoRestTemplate") RestTemplate restTemplate) {
+        this.kakaoMobilityProperties = kakaoMobilityProperties;
+        this.restTemplate = restTemplate;
+    }
 
     private static final String DIRECTIONS_URL = "https://apis-navi.kakaomobility.com/v1/directions";
 
