@@ -103,6 +103,7 @@ public class DirectionsController {
             }
 
             List<List<Double>> path = extractPath(route);
+            @SuppressWarnings("unchecked")
             Map<String, Object> summary = (Map<String, Object>) route.get("summary");
             int distance = summary != null && summary.get("distance") != null
                     ? ((Number) summary.get("distance")).intValue() : 0;
