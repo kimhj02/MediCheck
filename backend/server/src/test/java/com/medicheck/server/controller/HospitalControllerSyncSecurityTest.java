@@ -1,6 +1,8 @@
 package com.medicheck.server.controller;
 
 import com.medicheck.server.dto.SyncResult;
+import com.medicheck.server.config.DirectionsRateLimitProperties;
+import com.medicheck.server.security.PerIPDirectionsRateLimitFilter;
 import com.medicheck.server.security.SecurityConfig;
 import com.medicheck.server.security.XAdminKeyAuthFilter;
 import com.medicheck.server.service.HiraSyncService;
@@ -21,7 +23,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(HospitalController.class)
-@Import({SecurityConfig.class, XAdminKeyAuthFilter.class})
+@Import({SecurityConfig.class, XAdminKeyAuthFilter.class, PerIPDirectionsRateLimitFilter.class, DirectionsRateLimitProperties.class})
 @TestPropertySource(properties = "admin.sync-key=test-admin-key")
 class HospitalControllerSyncSecurityTest {
 

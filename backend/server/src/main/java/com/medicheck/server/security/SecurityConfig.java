@@ -22,6 +22,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfig {
 
     private final XAdminKeyAuthFilter xAdminKeyAuthFilter;
+    private final PerIPDirectionsRateLimitFilter perIPDirectionsRateLimitFilter;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -38,6 +39,7 @@ public class SecurityConfig {
                         .anyRequest()
                         .authenticated()
                 )
+                .addFilterBefore(perIPDirectionsRateLimitFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(xAdminKeyAuthFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }
