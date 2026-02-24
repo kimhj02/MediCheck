@@ -1,6 +1,6 @@
 package com.medicheck.server.controller;
 
-import com.medicheck.server.domain.repository.UserRepository;
+import com.medicheck.server.domain.entity.User;
 import com.medicheck.server.service.AuthService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -20,7 +20,6 @@ import java.util.Map;
 public class AuthController {
 
     private final AuthService authService;
-    private final UserRepository userRepository;
 
     @PostMapping("/signup")
     public ResponseEntity<Map<String, Object>> signup(@RequestBody Map<String, String> body) {
@@ -96,18 +95,17 @@ public class AuthController {
             err.put("error", "unauthorized");
             return ResponseEntity.status(401).body(err);
         }
-        return userRepository.findByLoginId(auth.getName())
-                .map(u -> {
-                    Map<String, Object> body = new HashMap<>();
-                    body.put("loginId", u.getLoginId());
-                    body.put("name", u.getName());
-                    body.put("userId", u.getId());
-                    return ResponseEntity.<Map<String, Object>>ok(body);
-                })
-                .orElseGet(() -> {
-                    Map<String, Object> err = new HashMap<>();
-                    err.put("error", "unauthorized");
-                    return ResponseEntity.status(401).body(err);
-                });
+        try {
+            User u = authService.getCurrentUser(auth.getName());
+            Map<String, Object> body = new HashMap<>();
+            body.put("loginId", u.getLoginId());
+            body.put("name", u.getName());
+            body.put("userId", u.getId());
+            return ResponseEntity.ok(body);
+        } catch (IllegalArgumentException e) {
+            Map<String, Object> err = new HashMap<>();
+            err.put("error", "unauthorized");
+            return ResponseEntity.status(401).body(err);
+        }
     }
 }

@@ -45,6 +45,19 @@ public class AuthService {
     }
 
     /**
+     * 현재 로그인 사용자를 조회합니다.
+     *
+     * @param loginId SecurityContext 에서 가져온 로그인 ID
+     * @return User 엔티티
+     * @throws IllegalArgumentException 사용자를 찾을 수 없는 경우
+     */
+    @Transactional(readOnly = true)
+    public User getCurrentUser(String loginId) {
+        return userRepository.findByLoginId(loginId)
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+    }
+
+    /**
      * 카카오 OAuth 인가 코드로 로그인 처리.
      * 기존 카카오 계정이 있으면 로그인, 없으면 자동 회원가입 후 토큰 발급.
      */
