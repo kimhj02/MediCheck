@@ -76,6 +76,10 @@ public class AuthController {
             return ResponseEntity.badRequest()
                     .body(Map.of("error", "invalid_input", "message", "카카오 로그인 코드가 없습니다."));
         }
+        if (redirectUri == null || redirectUri.isBlank()) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", "invalid_input", "message", "카카오 로그인 redirectUri가 없습니다."));
+        }
         try {
             String token = authService.loginWithKakaoCode(code, redirectUri);
             return ResponseEntity.ok(Map.of("token", token));
