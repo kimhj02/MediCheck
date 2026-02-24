@@ -45,6 +45,8 @@ export function buildInfoWindowHtml({ hospital, distanceMeters }: HospitalInfoWi
         type="button"
         data-action="favorite"
         data-hospital-id="${h.id}"
+        aria-label="즐겨찾기 ${escapeHtml(h.name)}"
+        title="즐겨찾기"
         style="flex:0 0 auto;min-width:40px;padding:8px 10px;background:#fff;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;cursor:pointer;"
       >★</button>
       <button
