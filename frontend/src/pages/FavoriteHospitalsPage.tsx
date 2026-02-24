@@ -13,9 +13,9 @@ export function FavoriteHospitalsPage() {
     error,
     refetch,
   } = useQuery({
-    queryKey: ['favoriteHospitals'],
+    queryKey: ['favoriteHospitals', user?.userId],
     queryFn: () => fetchFavoriteHospitals(token!),
-    enabled: !!token,
+    enabled: !!token && !!user,
   })
 
   useEffect(() => {

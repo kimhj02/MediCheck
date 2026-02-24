@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { fetchMe, type AuthUser } from '../api/auth'
 
 const TOKEN_KEY = 'medicheck_token'
@@ -18,12 +19,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [token, setToken] = useState<string | null>(() => localStorage.getItem(TOKEN_KEY))
   const [user, setUser] = useState<AuthUser | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const queryClient = useQueryClient()
 
   const logout = useCallback(() => {
     localStorage.removeItem(TOKEN_KEY)
     setToken(null)
     setUser(null)
-  }, [])
+    // 즐겨찾기 캐시 등 사용자별 데이터 초기화
+    queryClient.removeQueries({ queryKey: ['favoriteHospitals'] })
+  }, [queryClient])
 
   const login = useCallback((newToken: string) => {
     localStorage.setItem(TOKEN_KEY, newToken)
