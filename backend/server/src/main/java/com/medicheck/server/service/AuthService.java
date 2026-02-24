@@ -4,6 +4,7 @@ import com.medicheck.server.domain.entity.User;
 import com.medicheck.server.domain.repository.UserRepository;
 import com.medicheck.server.security.JwtService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -61,27 +62,41 @@ public class AuthService {
 
     /**
      * 카카오 OAuth 인가 코드로 로그인 처리.
-     * 기존 카카오 계정이 있으면 로그인, 없으면 자동 회원가입 후 토큰 발급.
+     * 외부 카카오 호출은 트랜잭션 밖에서 수행하고, 사용자 생성/조회만 트랜잭션 안에서 처리합니다.
      */
-    @Transactional
     public String loginWithKakaoCode(String code, String redirectUri) {
         KakaoOAuthService.KakaoUserInfo info = kakaoOAuthService.getUserInfo(code, redirectUri);
-
         String kakaoLoginId = "kakao_" + info.id();
+        String nickname = info.nickname() != null ? info.nickname().trim() : "";
+        return ensureKakaoUserAndGetToken(kakaoLoginId, nickname);
+    }
 
+    /**
+     * 카카오 로그인용 사용자를 생성하거나 기존 사용자를 조회한 뒤 토큰을 발급합니다.
+     * 동시 요청에 의한 중복 생성 시 DataIntegrityViolationException 을 잡고 재조회합니다.
+     */
+    @Transactional
+    protected String ensureKakaoUserAndGetToken(String kakaoLoginId, String nickname) {
         return userRepository.findByLoginId(kakaoLoginId)
                 .map(user -> jwtService.createToken(user.getLoginId(), user.getId()))
                 .orElseGet(() -> {
-                    String randomPassword = UUID.randomUUID().toString();
-                    String hash = passwordEncoder.encode(randomPassword);
-                    User user = User.builder()
-                            .loginId(kakaoLoginId)
-                            .email(buildInternalEmail(kakaoLoginId))
-                            .passwordHash(hash)
-                            .name(info.nickname() != null ? info.nickname().trim() : "")
-                            .build();
-                    user = userRepository.save(user);
-                    return jwtService.createToken(user.getLoginId(), user.getId());
+                    try {
+                        String randomPassword = UUID.randomUUID().toString();
+                        String hash = passwordEncoder.encode(randomPassword);
+                        User user = User.builder()
+                                .loginId(kakaoLoginId)
+                                .email(buildInternalEmail(kakaoLoginId))
+                                .passwordHash(hash)
+                                .name(nickname)
+                                .build();
+                        user = userRepository.save(user);
+                        return jwtService.createToken(user.getLoginId(), user.getId());
+                    } catch (DataIntegrityViolationException ex) {
+                        // 동시성으로 인해 이미 생성된 경우 재조회
+                        return userRepository.findByLoginId(kakaoLoginId)
+                                .map(user -> jwtService.createToken(user.getLoginId(), user.getId()))
+                                .orElseThrow(() -> ex);
+                    }
                 });
     }
 
