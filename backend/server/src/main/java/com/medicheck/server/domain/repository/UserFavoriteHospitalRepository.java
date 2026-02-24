@@ -1,6 +1,7 @@
 package com.medicheck.server.domain.repository;
 
 import com.medicheck.server.domain.entity.UserFavoriteHospital;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
@@ -12,6 +13,7 @@ public interface UserFavoriteHospitalRepository extends JpaRepository<UserFavori
 
     Optional<UserFavoriteHospital> findByUserIdAndHospitalId(Long userId, Long hospitalId);
 
+    @EntityGraph(attributePaths = "hospital")
     List<UserFavoriteHospital> findByUserIdOrderByCreatedAtDesc(Long userId);
 }
 
