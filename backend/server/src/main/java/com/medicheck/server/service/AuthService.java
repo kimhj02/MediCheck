@@ -21,22 +21,24 @@ public class AuthService {
 
     @Transactional
     public String signup(String loginId, String rawPassword, String name) {
-        if (userRepository.existsByLoginId(loginId)) {
+        String normalizedLoginId = loginId == null ? "" : loginId.trim();
+        if (userRepository.existsByLoginId(normalizedLoginId)) {
             throw new IllegalArgumentException("이미 사용 중인 아이디입니다.");
         }
         String hash = passwordEncoder.encode(rawPassword);
         User user = User.builder()
-                .loginId(loginId.trim())
-                .email(buildInternalEmail(loginId))
+                .loginId(normalizedLoginId)
+                .email(buildInternalEmail(normalizedLoginId))
                 .passwordHash(hash)
                 .name(name != null ? name.trim() : "")
                 .build();
         user = userRepository.save(user);
-        return jwtService.createToken(user.getLoginId(), user.getId());
+        return jwtService.createToken(normalizedLoginId, user.getId());
     }
 
     public String login(String loginId, String rawPassword) {
-        User user = userRepository.findByLoginId(loginId)
+        String normalizedLoginId = loginId == null ? "" : loginId.trim();
+        User user = userRepository.findByLoginId(normalizedLoginId)
                 .orElseThrow(() -> new IllegalArgumentException("아이디 또는 비밀번호가 올바르지 않습니다."));
         if (!passwordEncoder.matches(rawPassword, user.getPasswordHash())) {
             throw new IllegalArgumentException("아이디 또는 비밀번호가 올바르지 않습니다.");
