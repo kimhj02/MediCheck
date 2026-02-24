@@ -23,3 +23,36 @@ export async function fetchHospitalById(id: number): Promise<Hospital | null> {
   if (!res.ok) throw new Error('병원 상세 조회 실패')
   return res.json()
 }
+
+export async function fetchFavoriteHospitals(token: string): Promise<Hospital[]> {
+  const res = await fetch(`${API_BASE}/users/me/favorites`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  })
+  if (res.status === 401) throw new Error('로그인이 필요합니다.')
+  if (!res.ok) throw new Error('즐겨찾기 병원 조회 실패')
+  return res.json()
+}
+
+export async function addFavoriteHospital(token: string, hospitalId: number): Promise<void> {
+  const res = await fetch(`${API_BASE}/users/me/favorites/${hospitalId}`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  })
+  if (res.status === 401) throw new Error('로그인이 필요합니다.')
+  if (!res.ok) throw new Error('즐겨찾기 추가 실패')
+}
+
+export async function removeFavoriteHospital(token: string, hospitalId: number): Promise<void> {
+  const res = await fetch(`${API_BASE}/users/me/favorites/${hospitalId}`, {
+    method: 'DELETE',
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  })
+  if (res.status === 401) throw new Error('로그인이 필요합니다.')
+  if (!res.ok) throw new Error('즐겨찾기 해제 실패')
+}

@@ -16,19 +16,38 @@ export function buildInfoWindowHtml({ hospital, distanceMeters }: HospitalInfoWi
   if (h.address) rows.push(row('📍', escapeHtml(h.address)))
   if (h.phone) {
     const tel = h.phone.replace(/-/g, '')
-    rows.push(row('📞', `<a href="tel:${escapeHtml(tel)}" style="color:#2563eb;text-decoration:none;font-weight:500;">${escapeHtml(h.phone)}</a>`))
+    rows.push(
+      row(
+        '📞',
+        `<a href="tel:${escapeHtml(
+          tel
+        )}" style="color:#2563eb;text-decoration:none;font-weight:500;">${escapeHtml(h.phone)}</a>`
+      )
+    )
   }
   if (h.department) rows.push(row('🏥', escapeHtml(h.department)))
-  if (h.doctorTotalCount != null && h.doctorTotalCount > 0) rows.push(row('👨‍⚕️', `의사 ${h.doctorTotalCount}명`))
+  if (h.doctorTotalCount != null && h.doctorTotalCount > 0)
+    rows.push(row('👨‍⚕️', `의사 ${h.doctorTotalCount}명`))
   if (h.establishedDate) rows.push(row('📅', formatDate(h.establishedDate)))
   rows.push(row('📏', formatDistance(distanceMeters)))
-  rows.push(row('🕐', '<span style="color:#6b7280;font-size:12px;">※ 진료 시간은 병원에 문의해 주세요</span>'))
+  rows.push(
+    row(
+      '🕐',
+      '<span style="color:#6b7280;font-size:12px;">※ 진료 시간은 병원에 문의해 주세요</span>'
+    )
+  )
 
   const lat = h.latitude ?? 0
   const lng = h.longitude ?? 0
   const navLinks = `
     <div style="margin-top:10px;">
-      <button type="button" data-action="directions" data-dest-lat="${lat}" data-dest-lng="${lng}" style="display:flex;align-items:center;justify-content:center;gap:6px;width:100%;padding:8px 12px;background:#0ea5e9;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">🗺️ 앱 내 길찾기</button>
+      <button
+        type="button"
+        data-action="directions"
+        data-dest-lat="${lat}"
+        data-dest-lng="${lng}"
+        style="display:flex;align-items:center;justify-content:center;gap:6px;width:100%;padding:8px 12px;background:#0ea5e9;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;"
+      >🗺️ 앱 내 길찾기</button>
     </div>
   `
 
