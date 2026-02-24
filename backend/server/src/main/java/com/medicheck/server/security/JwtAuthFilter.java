@@ -1,7 +1,6 @@
 package com.medicheck.server.security;
 
-import io.jsonwebtoken.ExpiredJwtException;
-import io.jsonwebtoken.security.SignatureException;
+import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -40,7 +39,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                 );
                 auth.setDetails(userId);
                 SecurityContextHolder.getContext().setAuthentication(auth);
-            } catch (ExpiredJwtException | SignatureException | IllegalArgumentException ignored) {
+            } catch (JwtException | IllegalArgumentException ignored) {
                 // invalid or expired token – leave unauthenticated
             }
         }
