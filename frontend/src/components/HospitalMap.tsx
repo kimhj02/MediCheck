@@ -226,7 +226,7 @@ export const HospitalMap = forwardRef<HospitalMapHandle, HospitalMapProps>(
           const prevActive = isActive
           const nextActive = !isActive
           favoriteBtn.setAttribute('data-active', nextActive ? 'true' : 'false')
-          favoriteBtn.textContent = nextActive ? '★' : '★'
+          favoriteBtn.textContent = nextActive ? '★' : '☆'
           ;(async () => {
             try {
               if (isActive) {
@@ -237,7 +237,7 @@ export const HospitalMap = forwardRef<HospitalMapHandle, HospitalMapProps>(
             } catch (err) {
               // 롤백
               favoriteBtn.setAttribute('data-active', prevActive ? 'true' : 'false')
-              favoriteBtn.textContent = prevActive ? '★' : '★'
+              favoriteBtn.textContent = prevActive ? '★' : '☆'
               alert(
                 err instanceof Error ? err.message : '즐겨찾기 처리 중 오류가 발생했습니다.'
               )
