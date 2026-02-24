@@ -72,6 +72,7 @@ export function MapPage() {
   useEffect(() => {
     if (!token) {
       setFavoriteIds(new Set())
+      setShowFavoritesOnly(false)
       return
     }
     let cancelled = false
@@ -88,6 +89,7 @@ export function MapPage() {
       cancelled = true
     }
   }, [token])
+
 
   const departments = useMemo(() => {
     const set = new Set<string>()
