@@ -36,9 +36,27 @@ export function KakaoCallbackPage() {
       <div className="w-full max-w-sm text-center">
         <h2 className="text-xl font-bold text-gray-800 mb-4">카카오 로그인</h2>
         {error ? (
-          <div className="p-3 rounded-lg bg-red-50 text-red-600 text-sm mb-4">
-            {error}
-          </div>
+          <>
+            <div className="p-3 rounded-lg bg-red-50 text-red-600 text-sm mb-4">
+              {error}
+            </div>
+            <div className="flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={() => navigate(-1)}
+                className="w-full py-2.5 rounded-lg border border-gray-200 text-sm text-gray-700 hover:bg-gray-50"
+              >
+                이전 화면으로 돌아가기
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate('/login', { replace: true })}
+                className="w-full py-2.5 rounded-lg bg-sky-500 hover:bg-sky-600 text-white text-sm font-medium"
+              >
+                다시 로그인 시도하기
+              </button>
+            </div>
+          </>
         ) : (
           <p className="text-sm text-gray-600">카카오 계정으로 로그인 중입니다...</p>
         )}
