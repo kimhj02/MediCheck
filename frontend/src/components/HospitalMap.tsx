@@ -65,6 +65,7 @@ export const HospitalMap = forwardRef<HospitalMapHandle, HospitalMapProps>(
     const markersRef = useRef<Array<{ setMap: (m: unknown) => void }>>([])
     const ignoreMapClickRef = useRef(false)
     const { token } = useAuth()
+    const tokenRef = useRef<string | null>(null)
 
     const panToWithAnimation = (targetLat: number, targetLng: number) => {
       const map = mapRef.current
@@ -135,6 +136,10 @@ export const HospitalMap = forwardRef<HospitalMapHandle, HospitalMapProps>(
         }
       }
     }
+
+    useEffect(() => {
+      tokenRef.current = token ?? null
+    }, [token])
 
     useImperativeHandle(ref, () => ({
       panTo(lat: number, lng: number) {
@@ -212,7 +217,8 @@ export const HospitalMap = forwardRef<HospitalMapHandle, HospitalMapProps>(
           const idRaw = favoriteBtn.getAttribute('data-hospital-id')
           const hospitalId = idRaw ? Number(idRaw) : NaN
           if (!hospitalId || Number.isNaN(hospitalId)) return
-          if (!token) {
+          const currentToken = tokenRef.current
+          if (!currentToken) {
             alert('즐겨찾기는 로그인 후 이용해 주세요.')
             return
           }
@@ -222,9 +228,9 @@ export const HospitalMap = forwardRef<HospitalMapHandle, HospitalMapProps>(
           ;(async () => {
             try {
               if (isActive) {
-                await removeFavoriteHospital(token, hospitalId)
+                await removeFavoriteHospital(currentToken, hospitalId)
               } else {
-                await addFavoriteHospital(token, hospitalId)
+                await addFavoriteHospital(currentToken, hospitalId)
               }
             } catch (err) {
               alert(
