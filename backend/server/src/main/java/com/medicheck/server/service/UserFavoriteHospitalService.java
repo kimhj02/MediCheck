@@ -8,6 +8,7 @@ import com.medicheck.server.domain.repository.UserFavoriteHospitalRepository;
 import com.medicheck.server.domain.repository.UserRepository;
 import com.medicheck.server.dto.HospitalResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -37,15 +38,16 @@ public class UserFavoriteHospitalService {
      * 즐겨찾기에 추가합니다. 이미 존재하면 아무 작업도 하지 않습니다.
      */
     public void addFavorite(Long userId, Long hospitalId) {
-        if (favoriteRepository.existsByUserIdAndHospitalId(userId, hospitalId)) {
-            return;
-        }
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
         Hospital hospital = hospitalRepository.findById(hospitalId)
                 .orElseThrow(() -> new IllegalArgumentException("병원을 찾을 수 없습니다."));
         UserFavoriteHospital favorite = new UserFavoriteHospital(user, hospital);
-        favoriteRepository.save(favorite);
+        try {
+            favoriteRepository.save(favorite);
+        } catch (DataIntegrityViolationException ignored) {
+            // 이미 동일한 (user, hospital) 즐겨찾기가 존재하는 경우 — idempotent 처리
+        }
     }
 
     /**
