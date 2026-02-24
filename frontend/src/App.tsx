@@ -1,4 +1,4 @@
-import { Link, Routes, Route } from 'react-router-dom'
+import { Link, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { MapPage } from './pages/MapPage'
 import { LoginPage } from './pages/LoginPage'
@@ -49,6 +49,24 @@ function Header() {
   )
 }
 
+function RequireAuth({ children }: { children: React.ReactElement }) {
+  const { user, isLoading } = useAuth()
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[50vh]">
+        <span className="text-sm text-gray-400">...</span>
+      </div>
+    )
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />
+  }
+
+  return children
+}
+
 function AppContent() {
   return (
     <div className="min-h-screen bg-gray-50">
@@ -59,7 +77,14 @@ function AppContent() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignupPage />} />
           <Route path="/oauth/kakao/callback" element={<KakaoCallbackPage />} />
-          <Route path="/favorites" element={<FavoriteHospitalsPage />} />
+          <Route
+            path="/favorites"
+            element={
+              <RequireAuth>
+                <FavoriteHospitalsPage />
+              </RequireAuth>
+            }
+          />
         </Routes>
       </main>
     </div>
