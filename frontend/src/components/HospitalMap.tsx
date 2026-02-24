@@ -2,6 +2,8 @@ import { useEffect, useRef, useImperativeHandle, forwardRef, useState } from 're
 import type { NearbyHospital } from '../types/hospital'
 import { buildInfoWindowHtml } from './HospitalInfoWindow'
 import { fetchDirections } from '../api/directions'
+import { addFavoriteHospital, removeFavoriteHospital } from '../api/hospitals'
+import { useAuth } from '../contexts/AuthContext'
 import { formatDistance, formatDuration } from '../utils/format'
 
 declare const kakao: {
@@ -62,6 +64,7 @@ export const HospitalMap = forwardRef<HospitalMapHandle, HospitalMapProps>(
     const overlayRef = useRef<{ setMap: (m: unknown) => void } | null>(null)
     const markersRef = useRef<Array<{ setMap: (m: unknown) => void }>>([])
     const ignoreMapClickRef = useRef(false)
+    const { token } = useAuth()
 
     const panToWithAnimation = (targetLat: number, targetLng: number) => {
       const map = mapRef.current
@@ -195,11 +198,40 @@ export const HospitalMap = forwardRef<HospitalMapHandle, HospitalMapProps>(
 
       // 앱 내 길찾기 버튼 클릭 (이벤트 위임)
       const onDocClick = (e: MouseEvent) => {
-        const btn = (e.target as HTMLElement).closest('[data-action="directions"]')
-        if (btn instanceof HTMLElement) {
-          const destLat = parseFloat(btn.dataset.destLat ?? '0')
-          const destLng = parseFloat(btn.dataset.destLng ?? '0')
+        const target = e.target as HTMLElement
+        const directionsBtn = target.closest('[data-action="directions"]')
+        if (directionsBtn instanceof HTMLElement) {
+          const destLat = parseFloat(directionsBtn.dataset.destLat ?? '0')
+          const destLng = parseFloat(directionsBtn.dataset.destLng ?? '0')
           if (destLat && destLng) showRouteOnMap(destLat, destLng)
+          return
+        }
+
+        const favoriteBtn = target.closest('[data-action="favorite"]')
+        if (favoriteBtn instanceof HTMLElement) {
+          const idRaw = favoriteBtn.getAttribute('data-hospital-id')
+          const hospitalId = idRaw ? Number(idRaw) : NaN
+          if (!hospitalId || Number.isNaN(hospitalId)) return
+          if (!token) {
+            alert('즐겨찾기는 로그인 후 이용해 주세요.')
+            return
+          }
+          const isActive = favoriteBtn.getAttribute('data-active') === 'true'
+          favoriteBtn.setAttribute('data-active', isActive ? 'false' : 'true')
+          favoriteBtn.textContent = isActive ? '★' : '★'
+          ;(async () => {
+            try {
+              if (isActive) {
+                await removeFavoriteHospital(token, hospitalId)
+              } else {
+                await addFavoriteHospital(token, hospitalId)
+              }
+            } catch (err) {
+              alert(
+                err instanceof Error ? err.message : '즐겨찾기 처리 중 오류가 발생했습니다.'
+              )
+            }
+          })()
         }
       }
       document.addEventListener('click', onDocClick)

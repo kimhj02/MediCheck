@@ -4,6 +4,7 @@ import { MapPage } from './pages/MapPage'
 import { LoginPage } from './pages/LoginPage'
 import { SignupPage } from './pages/SignupPage'
 import { KakaoCallbackPage } from './pages/KakaoCallbackPage'
+import { FavoriteHospitalsPage } from './pages/FavoriteHospitalsPage'
 
 function Header() {
   const { user, logout, isLoading } = useAuth()
@@ -58,6 +59,7 @@ function AppContent() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignupPage />} />
           <Route path="/oauth/kakao/callback" element={<KakaoCallbackPage />} />
+          <Route path="/favorites" element={<FavoriteHospitalsPage />} />
         </Routes>
       </main>
     </div>

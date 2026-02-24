@@ -1,11 +1,12 @@
-import { useMemo, useRef, useState } from 'react'
+import { useMemo, useRef, useState, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { fetchNearbyHospitals } from '../api/hospitals'
+import { fetchNearbyHospitals, fetchFavoriteHospitals } from '../api/hospitals'
 import { HospitalMap, type HospitalMapHandle } from '../components/HospitalMap'
 import { HospitalListItem } from '../components/HospitalListItem'
 import { useGeolocation } from '../hooks/useGeolocation'
 import { useKakaoMapScript } from '../hooks/useKakaoMapScript'
 import type { NearbyHospital } from '../types/hospital'
+import { useAuth } from '../contexts/AuthContext'
 
 const RADIUS_OPTIONS = [
   { value: 1000, label: '1km' },
@@ -34,6 +35,7 @@ function filterHospitals(
       (i) => i.hospital.department?.toLowerCase().includes(department.toLowerCase()) ?? false
     )
   }
+  // 정렬은 백엔드(거리 순) 결과를 그대로 사용
   return result
 }
 
@@ -43,6 +45,9 @@ export function MapPage() {
   const [searchKeyword, setSearchKeyword] = useState('')
   const [departmentFilter, setDepartmentFilter] = useState('')
   const mapRef = useRef<HospitalMapHandle>(null)
+  const { token } = useAuth()
+  const [favoriteIds, setFavoriteIds] = useState<Set<number>>(new Set())
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false)
 
   const { loaded: mapLoaded, error: mapError } = useKakaoMapScript()
   const { latitude, longitude, loading: geoLoading, error: geoError } = useGeolocation()
@@ -59,6 +64,26 @@ export function MapPage() {
     enabled: !!latitude && !!longitude,
   })
 
+  useEffect(() => {
+    if (!token) {
+      setFavoriteIds(new Set())
+      return
+    }
+    let cancelled = false
+    ;(async () => {
+      try {
+        const favorites = await fetchFavoriteHospitals(token)
+        if (cancelled) return
+        setFavoriteIds(new Set(favorites.map((h) => h.id)))
+      } catch {
+        // 즐겨찾기 실패는 조용히 무시
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [token])
+
   const departments = useMemo(() => {
     const set = new Set<string>()
     hospitals.forEach((i) => {
@@ -70,6 +95,14 @@ export function MapPage() {
   const filteredHospitals = useMemo(
     () => filterHospitals(hospitals, searchKeyword, departmentFilter),
     [hospitals, searchKeyword, departmentFilter]
+  )
+
+  const visibleHospitals = useMemo(
+    () =>
+      showFavoritesOnly
+        ? filteredHospitals.filter((i) => favoriteIds.has(i.hospital.id))
+        : filteredHospitals,
+    [filteredHospitals, showFavoritesOnly, favoriteIds]
   )
 
   if (mapError) {
@@ -166,6 +199,31 @@ export function MapPage() {
                   </option>
                 ))}
               </select>
+              <div className="flex items-center gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setShowFavoritesOnly(false)}
+                  className={`flex-1 px-2 py-1.5 rounded-lg text-xs font-medium border ${
+                    !showFavoritesOnly
+                      ? 'bg-sky-500 text-white border-sky-500'
+                      : 'bg-white text-gray-600 border-gray-200'
+                  }`}
+                >
+                  전체
+                </button>
+                <button
+                  type="button"
+                  onClick={() => token && setShowFavoritesOnly(true)}
+                  disabled={!token}
+                  className={`flex-1 px-2 py-1.5 rounded-lg text-xs font-medium border ${
+                    showFavoritesOnly
+                      ? 'bg-sky-500 text-white border-sky-500'
+                      : 'bg-white text-gray-600 border-gray-200'
+                  } ${!token ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  즐겨찾기만 보기
+                </button>
+              </div>
             </div>
           </div>
           <div className="p-2 space-y-1 flex-1 overflow-y-auto">
@@ -189,16 +247,30 @@ export function MapPage() {
               </div>
             ) : hospitals.length === 0 ? (
               <div className="text-center py-8 text-gray-400 text-sm">병원이 없습니다</div>
-            ) : filteredHospitals.length === 0 ? (
+            ) : visibleHospitals.length === 0 ? (
               <div className="text-center py-8 text-gray-400 text-sm">
-                검색 결과가 없습니다
+                {showFavoritesOnly ? '즐겨찾기한 병원이 없습니다' : '검색 결과가 없습니다'}
               </div>
             ) : (
-              filteredHospitals.map((item) => (
+              visibleHospitals.map((item) => (
                 <HospitalListItem
                   key={item.hospital.id}
                   item={item}
                   onClick={() => mapRef.current?.showHospitalPopup(item)}
+                  isFavorite={favoriteIds.has(item.hospital.id)}
+                  onToggleFavorite={
+                    token
+                      ? () => {
+                          const id = item.hospital.id
+                          setFavoriteIds((prev) => {
+                            const next = new Set(prev)
+                            if (next.has(id)) next.delete(id)
+                            else next.add(id)
+                            return next
+                          })
+                        }
+                      : undefined
+                  }
                 />
               ))
             )}
@@ -208,11 +280,21 @@ export function MapPage() {
 
       {/* 지도 영역 */}
       <div className="flex-1 relative">
+        {!isListOpen && (
+          <button
+            type="button"
+            onClick={() => setIsListOpen(true)}
+            className="absolute top-1/2 left-0 -translate-y-1/2 translate-x-1/2 z-20 p-2.5 rounded-r-xl bg-white/95 border border-gray-200 shadow hover:bg-white"
+            aria-label="근처 병원 목록 열기"
+          >
+            ▶
+          </button>
+        )}
         <HospitalMap
           ref={mapRef}
           centerLat={latitude}
           centerLng={longitude}
-          hospitals={filteredHospitals}
+          hospitals={visibleHospitals}
         />
 
         {/* 플로팅 컨트롤 */}
@@ -235,9 +317,9 @@ export function MapPage() {
           </div>
           <div className="pointer-events-auto flex items-center gap-2">
             <div className="px-4 py-2 bg-white/95 rounded-xl shadow text-sm text-gray-600">
-              <span className="font-semibold text-sky-600">{filteredHospitals.length}</span>
-              {filteredHospitals.length !== hospitals.length
-                ? ` / ${hospitals.length}`
+              <span className="font-semibold text-sky-600">{visibleHospitals.length}</span>
+              {visibleHospitals.length !== filteredHospitals.length
+                ? ` / ${filteredHospitals.length}`
                 : ''}
               개 병원
             </div>
