@@ -44,7 +44,7 @@ public class AuthService {
         if (!passwordEncoder.matches(rawPassword, user.getPasswordHash())) {
             throw new IllegalArgumentException("아이디 또는 비밀번호가 올바르지 않습니다.");
         }
-        return jwtService.createToken(user.getLoginId(), user.getId());
+        return jwtService.createToken(normalizedLoginId, user.getId());
     }
 
     /**
