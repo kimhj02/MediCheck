@@ -40,13 +40,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setIsLoading(false)
       return
     }
+     setIsLoading(true)
     let cancelled = false
     fetchMe(token).then((u) => {
       if (!cancelled) {
         setUser(u)
         if (!u) logout()
+        setIsLoading(false)
       }
-      setIsLoading(false)
     }).catch(() => {
       if (!cancelled) {
         logout()
