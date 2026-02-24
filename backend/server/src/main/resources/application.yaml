@@ -18,6 +18,12 @@ spring:
     console:
       enabled: false
 
+# JWT (회원 로그인)
+app:
+  jwt:
+    secret: ${JWT_SECRET:medicheck-jwt-secret-change-in-production-min-256bits}
+    expiration-ms: 86400000  # 24h
+
 # 동기화 API 호출 시 필요한 관리자 키 (헤더 X-Admin-Key 와 일치해야 함).
 # 로컬: 기본값 사용. 운영: 반드시 환경변수 ADMIN_SYNC_KEY 로 덮어써야 함.
 admin:
@@ -44,6 +50,13 @@ resilience4j:
 kakao:
   mobility:
     rest-api-key: ${KAKAO_MOBILITY_REST_API_KEY:}
+
+  # 카카오 OAuth (소셜 로그인)
+  oauth:
+    # 프론트에서 사용하는 REST API 키 (client_id)
+    rest-api-key: ${KAKAO_OAUTH_REST_API_KEY:}
+    # 선택: 카카오 앱 클라이언트 시크릿 사용 시 설정
+    client-secret: ${KAKAO_OAUTH_CLIENT_SECRET:}
 
 hira:
   api:

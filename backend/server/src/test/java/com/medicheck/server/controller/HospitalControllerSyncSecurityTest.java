@@ -23,7 +23,16 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(HospitalController.class)
-@Import({SecurityConfig.class, XAdminKeyAuthFilter.class, PerIPDirectionsRateLimitFilter.class, DirectionsRateLimitProperties.class})
+@Import({
+    SecurityConfig.class,
+    XAdminKeyAuthFilter.class,
+    PerIPDirectionsRateLimitFilter.class,
+    DirectionsRateLimitProperties.class,
+    com.medicheck.server.security.JwtAuthFilter.class,
+    com.medicheck.server.security.JwtService.class,
+    com.medicheck.server.config.SecurityBeanConfig.class,
+    com.medicheck.server.config.TestAuthConfig.class,
+})
 @TestPropertySource(properties = "admin.sync-key=test-admin-key")
 class HospitalControllerSyncSecurityTest {
 

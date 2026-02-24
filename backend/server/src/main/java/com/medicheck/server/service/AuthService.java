@@ -1,0 +1,84 @@
+package com.medicheck.server.service;
+
+import com.medicheck.server.domain.entity.User;
+import com.medicheck.server.domain.repository.UserRepository;
+import com.medicheck.server.security.JwtService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.UUID;
+
+@Service
+@RequiredArgsConstructor
+public class AuthService {
+
+    private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final JwtService jwtService;
+    private final KakaoOAuthService kakaoOAuthService;
+
+    @Transactional
+    public String signup(String loginId, String rawPassword, String name) {
+        if (userRepository.existsByLoginId(loginId)) {
+            throw new IllegalArgumentException("이미 사용 중인 아이디입니다.");
+        }
+        String hash = passwordEncoder.encode(rawPassword);
+        User user = User.builder()
+                .loginId(loginId.trim())
+                .email(buildInternalEmail(loginId))
+                .passwordHash(hash)
+                .name(name != null ? name.trim() : "")
+                .build();
+        user = userRepository.save(user);
+        return jwtService.createToken(user.getLoginId(), user.getId());
+    }
+
+    public String login(String loginId, String rawPassword) {
+        User user = userRepository.findByLoginId(loginId)
+                .orElseThrow(() -> new IllegalArgumentException("아이디 또는 비밀번호가 올바르지 않습니다."));
+        if (!passwordEncoder.matches(rawPassword, user.getPasswordHash())) {
+            throw new IllegalArgumentException("아이디 또는 비밀번호가 올바르지 않습니다.");
+        }
+        return jwtService.createToken(user.getLoginId(), user.getId());
+    }
+
+    /**
+     * 카카오 OAuth 인가 코드로 로그인 처리.
+     * 기존 카카오 계정이 있으면 로그인, 없으면 자동 회원가입 후 토큰 발급.
+     */
+    @Transactional
+    public String loginWithKakaoCode(String code, String redirectUri) {
+        KakaoOAuthService.KakaoUserInfo info = kakaoOAuthService.getUserInfo(code, redirectUri);
+
+        String kakaoLoginId = "kakao_" + info.id();
+
+        return userRepository.findByLoginId(kakaoLoginId)
+                .map(user -> jwtService.createToken(user.getLoginId(), user.getId()))
+                .orElseGet(() -> {
+                    String randomPassword = UUID.randomUUID().toString();
+                    String hash = passwordEncoder.encode(randomPassword);
+                    User user = User.builder()
+                            .loginId(kakaoLoginId)
+                            .email(buildInternalEmail(kakaoLoginId))
+                            .passwordHash(hash)
+                            .name(info.nickname() != null ? info.nickname().trim() : "")
+                            .build();
+                    user = userRepository.save(user);
+                    return jwtService.createToken(user.getLoginId(), user.getId());
+                });
+    }
+
+    /**
+     * 실제 이메일을 받지 않으므로 내부용 이메일 값을 생성한다.
+     * 기존 DB의 NOT NULL 제약을 만족시키기 위한 용도.
+     */
+    private String buildInternalEmail(String baseId) {
+        String trimmed = baseId == null ? "" : baseId.trim();
+        if (trimmed.isEmpty()) {
+            trimmed = "user";
+        }
+        return trimmed + "@local.medicheck";
+    }
+}

@@ -23,6 +23,7 @@ public class SecurityConfig {
 
     private final XAdminKeyAuthFilter xAdminKeyAuthFilter;
     private final PerIPDirectionsRateLimitFilter perIPDirectionsRateLimitFilter;
+    private final JwtAuthFilter jwtAuthFilter;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -33,12 +34,13 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.POST, "/api/hospitals/sync", "/api/hospitals/sync/all", "/api/hospitals/sync/region", "/api/hospitals/sync/location")
                         .hasRole("ADMIN")
-                        .requestMatchers("/api/hospitals/**", "/api/directions/**", "/swagger-ui/**", "/swagger-ui.html",
+                        .requestMatchers("/api/auth/**", "/api/hospitals/**", "/api/directions/**", "/swagger-ui/**", "/swagger-ui.html",
                                 "/v3/api-docs/**", "/error")
                         .permitAll()
                         .anyRequest()
                         .authenticated()
                 )
+                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(perIPDirectionsRateLimitFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(xAdminKeyAuthFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
