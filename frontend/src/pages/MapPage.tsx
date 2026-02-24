@@ -1,6 +1,11 @@
 import { useMemo, useRef, useState, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { fetchNearbyHospitals, fetchFavoriteHospitals } from '../api/hospitals'
+import {
+  fetchNearbyHospitals,
+  fetchFavoriteHospitals,
+  addFavoriteHospital,
+  removeFavoriteHospital,
+} from '../api/hospitals'
 import { HospitalMap, type HospitalMapHandle } from '../components/HospitalMap'
 import { HospitalListItem } from '../components/HospitalListItem'
 import { useGeolocation } from '../hooks/useGeolocation'
@@ -260,14 +265,29 @@ export function MapPage() {
                   isFavorite={favoriteIds.has(item.hospital.id)}
                   onToggleFavorite={
                     token
-                      ? () => {
+                      ? async () => {
                           const id = item.hospital.id
-                          setFavoriteIds((prev) => {
-                            const next = new Set(prev)
-                            if (next.has(id)) next.delete(id)
-                            else next.add(id)
-                            return next
-                          })
+                          const prev = new Set(favoriteIds)
+                          const next = new Set(prev)
+                          const isAdding = !next.has(id)
+                          if (isAdding) next.add(id)
+                          else next.delete(id)
+                          setFavoriteIds(next)
+                          try {
+                            if (isAdding) {
+                              await addFavoriteHospital(token, id)
+                            } else {
+                              await removeFavoriteHospital(token, id)
+                            }
+                          } catch (err) {
+                            // 롤백
+                            setFavoriteIds(prev)
+                            alert(
+                              err instanceof Error
+                                ? err.message
+                                : '즐겨찾기 처리 중 오류가 발생했습니다.'
+                            )
+                          }
                         }
                       : undefined
                   }
