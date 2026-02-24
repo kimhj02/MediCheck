@@ -32,10 +32,24 @@ public class SecurityConfig {
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(HttpMethod.POST, "/api/hospitals/sync", "/api/hospitals/sync/all", "/api/hospitals/sync/region", "/api/hospitals/sync/location")
+                        .requestMatchers(HttpMethod.POST,
+                                "/api/hospitals/sync",
+                                "/api/hospitals/sync/all",
+                                "/api/hospitals/sync/region",
+                                "/api/hospitals/sync/location")
                         .hasRole("ADMIN")
-                        .requestMatchers("/api/auth/**", "/api/hospitals/**", "/api/directions/**", "/swagger-ui/**", "/swagger-ui.html",
-                                "/v3/api-docs/**", "/error")
+                        // 공개 인증 관련 엔드포인트만 허용 (me는 인증 필요)
+                        .requestMatchers(
+                                "/api/auth/login",
+                                "/api/auth/signup",
+                                "/api/auth/login/kakao",
+                                "/api/hospitals/**",
+                                "/api/directions/**",
+                                "/swagger-ui/**",
+                                "/swagger-ui.html",
+                                "/v3/api-docs/**",
+                                "/error"
+                        )
                         .permitAll()
                         .anyRequest()
                         .authenticated()
