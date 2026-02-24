@@ -40,21 +40,13 @@ export function buildInfoWindowHtml({ hospital, distanceMeters }: HospitalInfoWi
   const lat = h.latitude ?? 0
   const lng = h.longitude ?? 0
   const navLinks = `
-    <div style="margin-top:10px;display:flex;gap:8px;">
-      <button
-        type="button"
-        data-action="favorite"
-        data-hospital-id="${h.id}"
-        aria-label="즐겨찾기 ${escapeHtml(h.name)}"
-        title="즐겨찾기"
-        style="flex:0 0 auto;min-width:40px;padding:8px 10px;background:#fff;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;cursor:pointer;"
-      >★</button>
+    <div style="margin-top:10px;">
       <button
         type="button"
         data-action="directions"
         data-dest-lat="${lat}"
         data-dest-lng="${lng}"
-        style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;width:100%;padding:8px 12px;background:#0ea5e9;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;"
+        style="display:flex;align-items:center;justify-content:center;gap:6px;width:100%;padding:8px 12px;background:#0ea5e9;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;"
       >🗺️ 앱 내 길찾기</button>
     </div>
   `
