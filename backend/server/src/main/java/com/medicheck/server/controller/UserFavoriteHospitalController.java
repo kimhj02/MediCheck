@@ -4,9 +4,11 @@ import com.medicheck.server.dto.HospitalResponse;
 import com.medicheck.server.domain.repository.UserRepository;
 import com.medicheck.server.service.UserFavoriteHospitalService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 import java.util.Map;
@@ -26,12 +28,12 @@ public class UserFavoriteHospitalController {
 
     private Long getCurrentUserId(Authentication authentication) {
         if (authentication == null || !authentication.isAuthenticated()) {
-            throw new IllegalStateException("인증되지 않은 요청입니다.");
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "인증되지 않은 요청입니다.");
         }
         String loginId = authentication.getName();
         return userRepository.findByLoginId(loginId)
                 .map(u -> u.getId())
-                .orElseThrow(() -> new IllegalStateException("사용자 정보를 찾을 수 없습니다."));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "사용자 정보를 찾을 수 없습니다."));
     }
 
     @GetMapping
