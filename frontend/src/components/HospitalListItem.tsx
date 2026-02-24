@@ -1,3 +1,4 @@
+import type React from 'react'
 import type { NearbyHospital } from '../types/hospital'
 import { formatDistance } from '../utils/format'
 
@@ -20,6 +21,14 @@ export function HospitalListItem({
       className="w-full px-4 py-3 rounded-xl hover:bg-sky-50 active:bg-sky-100 transition-colors border border-transparent hover:border-sky-100 cursor-pointer"
       onClick={onClick}
       role="button"
+      tabIndex={0}
+      onKeyDown={(e: React.KeyboardEvent<HTMLDivElement>) => {
+        if (!onClick) return
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onClick()
+        }
+      }}
     >
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0">
