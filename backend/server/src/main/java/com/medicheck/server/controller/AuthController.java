@@ -34,9 +34,9 @@ public class AuthController {
             return ResponseEntity.badRequest()
                     .body(Map.of("error", "invalid_login_id", "message", "아이디는 2~50자로 입력하세요."));
         }
-        if (password.length() < 4) {
+        if (password.length() < 8) {
             return ResponseEntity.badRequest()
-                    .body(Map.of("error", "invalid_password", "message", "비밀번호는 4자 이상이어야 합니다."));
+                    .body(Map.of("error", "invalid_password", "message", "비밀번호는 8자 이상이어야 합니다."));
         }
         try {
             String token = authService.signup(loginId, password, name != null ? name : "");
