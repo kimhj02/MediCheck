@@ -17,7 +17,7 @@ declare const kakao: {
     LatLngBounds: new (sw: unknown, ne?: unknown) => {
       extend: (point: unknown) => void
     }
-    Marker: new (options: { position: unknown; map: unknown }) => unknown
+    Marker: new (options: { position: unknown; map?: unknown }) => unknown
     Polyline: new (options: {
       path: unknown[]
       strokeWeight?: number
@@ -33,6 +33,15 @@ declare const kakao: {
       yAnchor?: number
       zIndex?: number
     }) => { setMap: (map: unknown) => void }
+    MarkerClusterer: new (options: {
+      map: unknown
+      averageCenter?: boolean
+      minLevel?: number
+      disableClickZoom?: boolean
+    }) => {
+      addMarkers: (markers: unknown[]) => void
+      clear: () => void
+    }
     event: {
       addListener: (target: unknown, type: string, handler: () => void) => void
       removeListener?: (target: unknown, type: string, handler: () => void) => void
@@ -63,6 +72,9 @@ export const HospitalMap = forwardRef<HospitalMapHandle, HospitalMapProps>(
     const [routeInfo, setRouteInfo] = useState<{ duration: number; distance: number } | null>(null)
     const overlayRef = useRef<{ setMap: (m: unknown) => void } | null>(null)
     const markersRef = useRef<Array<{ setMap: (m: unknown) => void }>>([])
+    const clustererRef = useRef<{ addMarkers: (ms: unknown[]) => void; clear: () => void } | null>(
+      null
+    )
     const ignoreMapClickRef = useRef(false)
     const { token } = useAuth()
     const tokenRef = useRef<string | null>(null)
@@ -181,6 +193,15 @@ export const HospitalMap = forwardRef<HospitalMapHandle, HospitalMapProps>(
       })
       mapRef.current = map
 
+      // 마커 클러스터러 생성 (많은 병원 마커를 효율적으로 표시)
+      const clusterer = new kakao.maps.MarkerClusterer({
+        map,
+        averageCenter: true,
+        minLevel: 7,
+        disableClickZoom: false,
+      })
+      clustererRef.current = clusterer
+
       // 내 위치 마커 (파란 동그라미)
       const myLocationEl = document.createElement('div')
       myLocationEl.innerHTML = `
@@ -268,16 +289,25 @@ export const HospitalMap = forwardRef<HospitalMapHandle, HospitalMapProps>(
         if (kakao.maps.event.removeListener) {
           kakao.maps.event.removeListener(map, 'click', onMapClick)
         }
+         if (clustererRef.current) {
+          clustererRef.current.clear()
+          clustererRef.current = null
+        }
         mapRef.current = null
       }
     }, [centerLat, centerLng])
 
     useEffect(() => {
       const map = mapRef.current
-      if (!map || !window.kakao?.maps) return
+      const clusterer = clustererRef.current
+      if (!map || !window.kakao?.maps || !clusterer) return
 
+      // 기존 마커 및 클러스터 제거
       markersRef.current.forEach((m) => m.setMap(null))
       markersRef.current = []
+      clusterer.clear()
+
+      const newMarkers: Array<{ setMap: (m: unknown) => void }> = []
 
       hospitals.forEach((item) => {
         const h = item.hospital
@@ -287,9 +317,8 @@ export const HospitalMap = forwardRef<HospitalMapHandle, HospitalMapProps>(
 
         const marker = new kakao.maps.Marker({
           position: new kakao.maps.LatLng(lat, lng),
-          map,
         }) as { setMap: (m: unknown) => void }
-        markersRef.current.push(marker)
+        newMarkers.push(marker)
 
         kakao.maps.event.addListener(marker, 'click', () => {
           ignoreMapClickRef.current = true
@@ -311,6 +340,11 @@ export const HospitalMap = forwardRef<HospitalMapHandle, HospitalMapProps>(
           panToWithAnimation(lat, lng)
         })
       })
+
+      if (newMarkers.length > 0) {
+        clusterer.addMarkers(newMarkers as unknown[])
+      }
+      markersRef.current = newMarkers
 
       return () => {
         markersRef.current.forEach((m) => m.setMap(null))

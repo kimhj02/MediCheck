@@ -18,6 +18,8 @@ const RADIUS_OPTIONS = [
   { value: 3000, label: '3km' },
   { value: 5000, label: '5km' },
   { value: 10000, label: '10km' },
+  // 서비스 최대 반경(50km) — 사실상 구미 전역
+  { value: 50000, label: '거리 제한 없음' },
 ]
 
 function filterHospitals(
@@ -186,7 +188,31 @@ export function MapPage() {
               내 위치로 이동
             </button>
 
-            <div className="mt-3 space-y-2">
+            <div className="mt-3">
+              <div
+                className="flex flex-wrap gap-2 mb-2"
+                role="group"
+                aria-label="검색 반경 선택"
+              >
+                {RADIUS_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setRadius(opt.value)}
+                    aria-pressed={radius === opt.value}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                      radius === opt.value
+                        ? 'bg-sky-500 text-white shadow-sm'
+                        : 'bg-white text-gray-600 border border-gray-200 hover:bg-sky-50'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-2">
               <input
                 type="search"
                 placeholder="병원명, 주소, 진료과 검색"
@@ -319,24 +345,8 @@ export function MapPage() {
           hospitals={visibleHospitals}
         />
 
-        {/* 플로팅 컨트롤 */}
-        <div className="absolute top-4 left-4 right-4 flex items-start justify-between gap-2 pointer-events-none">
-          <div className="pointer-events-auto flex flex-wrap gap-2">
-            {RADIUS_OPTIONS.map((opt) => (
-              <button
-                key={opt.value}
-                type="button"
-                onClick={() => setRadius(opt.value)}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                  radius === opt.value
-                    ? 'bg-sky-500 text-white shadow-md'
-                    : 'bg-white/95 text-gray-600 hover:bg-white shadow'
-                }`}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
+        {/* 플로팅 컨트롤 - 병원 개수만 표시 */}
+        <div className="absolute top-4 right-4 flex items-start gap-2 pointer-events-none">
           <div className="pointer-events-auto flex items-center gap-2">
             <div className="px-4 py-2 bg-white/95 rounded-xl shadow text-sm text-gray-600">
               <span className="font-semibold text-sky-600">{visibleHospitals.length}</span>

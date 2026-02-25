@@ -27,8 +27,8 @@ import java.util.stream.Collectors;
 public class HospitalService {
 
     private final HospitalRepository hospitalRepository;
-    /** 근처 병원 조회 시 한 번에 반환할 최대 개수 */
-    private static final int NEARBY_MAX_RESULTS = 100;
+    /** 근처 병원 조회 시 한 번에 반환할 최대 개수 (일단 500개로 상한 설정). */
+    private static final int NEARBY_MAX_RESULTS = 500;
     /** 근처 병원 조회에서 허용할 최대 반경 (미터) — 예: 50km */
     private static final double MAX_RADIUS_METERS = 50_000;
 
@@ -64,6 +64,10 @@ public class HospitalService {
      * @param longitude    사용자 경도 (WGS84)
      * @param radiusMeters 반경 (미터)
      */
+    /**
+     * TODO: 반경이 매우 큰(예: 50km) 요청에 대해서는 서버 페이징이나 프론트 단 마커 클러스터링 도입을 검토.
+     * 현재는 최대 500개까지만 한 번에 반환하며, 그 이상은 잘린다는 정보를 별도 헤더로 노출합니다.
+     */
     public List<NearbyHospitalResponse> findNearby(BigDecimal latitude, BigDecimal longitude, double radiusMeters) {
         if (latitude == null || longitude == null) {
             throw new IllegalArgumentException("latitude and longitude must not be null");
@@ -74,18 +78,22 @@ public class HospitalService {
 
         double effectiveRadius = Math.min(radiusMeters, MAX_RADIUS_METERS);
 
+        // 하나 더 가져와서(NEARBY_MAX_RESULTS + 1) 잘림 여부를 감지한다.
         List<Object[]> idAndDistance = hospitalRepository.findNearbyIdAndDistance(
                 latitude.doubleValue(),
                 longitude.doubleValue(),
                 effectiveRadius,
-                NEARBY_MAX_RESULTS
+                NEARBY_MAX_RESULTS + 1
         );
 
         if (idAndDistance.isEmpty()) {
+            NearbyQueryContextHolder.clear();
             return List.of();
         }
 
+        boolean truncated = idAndDistance.size() > NEARBY_MAX_RESULTS;
         List<Long> orderedIds = idAndDistance.stream()
+                .limit(NEARBY_MAX_RESULTS)
                 .map(row -> ((Number) row[0]).longValue())
                 .toList();
         Map<Long, Double> idToDistance = idAndDistance.stream()
@@ -93,6 +101,12 @@ public class HospitalService {
 
         List<Hospital> hospitals = hospitalRepository.findAllById(orderedIds);
         Map<Long, Hospital> idToHospital = hospitals.stream().collect(Collectors.toMap(Hospital::getId, h -> h));
+
+        // 응답 헤더에서 사용할 수 있도록 쓰레드 로컬에 메타데이터 보관
+        NearbyQueryContextHolder.setMetadata(new NearbyQueryMetadata(
+                orderedIds.size(),
+                truncated
+        ));
 
         return orderedIds.stream()
                 .map(id -> {

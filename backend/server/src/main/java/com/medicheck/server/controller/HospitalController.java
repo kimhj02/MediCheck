@@ -6,10 +6,13 @@ import com.medicheck.server.dto.NearbyHospitalResponse;
 import com.medicheck.server.dto.SyncResult;
 import com.medicheck.server.service.HiraSyncService;
 import com.medicheck.server.service.HospitalService;
+import com.medicheck.server.service.NearbyQueryContextHolder;
+import com.medicheck.server.service.NearbyQueryMetadata;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -76,8 +79,22 @@ public class HospitalController {
             @RequestParam("lng") BigDecimal longitude,
             @RequestParam(name = "radiusMeters", defaultValue = "3000") double radiusMeters
     ) {
-        List<NearbyHospitalResponse> hospitals = hospitalService.findNearby(latitude, longitude, radiusMeters);
-        return ResponseEntity.ok(hospitals);
+        try {
+            List<NearbyHospitalResponse> hospitals = hospitalService.findNearby(latitude, longitude, radiusMeters);
+
+            NearbyQueryMetadata metadata = NearbyQueryContextHolder.getMetadata();
+            HttpHeaders headers = new HttpHeaders();
+            if (metadata != null) {
+                headers.add("X-Returned-Count", String.valueOf(metadata.returnedCount()));
+                headers.add("X-Truncated", String.valueOf(metadata.truncated()));
+            }
+
+            return ResponseEntity.ok()
+                    .headers(headers)
+                    .body(hospitals);
+        } finally {
+            NearbyQueryContextHolder.clear();
+        }
     }
 
     /**
