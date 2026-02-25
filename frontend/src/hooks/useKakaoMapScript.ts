@@ -25,7 +25,8 @@ export function useKakaoMapScript() {
       return
     }
     const script = document.createElement('script')
-    script.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${key}&autoload=false`
+    // 클러스터러 라이브러리까지 함께 로드
+    script.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${key}&libraries=clusterer&autoload=false`
     script.async = true
     script.onload = () => {
       if (window.kakao?.maps) {
