@@ -18,6 +18,8 @@ const RADIUS_OPTIONS = [
   { value: 3000, label: '3km' },
   { value: 5000, label: '5km' },
   { value: 10000, label: '10km' },
+  // 서비스 최대 반경(50km) — 사실상 구미 전역
+  { value: 50000, label: '거리 제한 없음' },
 ]
 
 function filterHospitals(
