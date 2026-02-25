@@ -189,12 +189,17 @@ export function MapPage() {
             </button>
 
             <div className="mt-3">
-              <div className="flex flex-wrap gap-2 mb-2">
+              <div
+                className="flex flex-wrap gap-2 mb-2"
+                role="group"
+                aria-label="검색 반경 선택"
+              >
                 {RADIUS_OPTIONS.map((opt) => (
                   <button
                     key={opt.value}
                     type="button"
                     onClick={() => setRadius(opt.value)}
+                    aria-pressed={radius === opt.value}
                     className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                       radius === opt.value
                         ? 'bg-sky-500 text-white shadow-sm'
