@@ -1,6 +1,17 @@
 import type React from 'react'
-import type { NearbyHospital } from '../types/hospital'
+import type { Hospital, NearbyHospital } from '../types/hospital'
 import { formatDistance } from '../utils/format'
+
+function doctorSummary(h: Hospital): string | null {
+  const total = h.doctorTotalCount ?? 0
+  const specialist =
+    (h.mdeptSpecialistCount ?? 0) +
+    (h.detySpecialistCount ?? 0) +
+    (h.cmdcSpecialistCount ?? 0)
+  if (total === 0) return null
+  if (specialist > 0) return `의사 ${total}명 · 전문의 ${specialist}명`
+  return `의사 ${total}명`
+}
 
 interface HospitalListItemProps {
   item: NearbyHospital
@@ -54,6 +65,9 @@ export function HospitalListItem({
           {formatDistance(item.distanceMeters)}
         </span>
       </div>
+      {doctorSummary(h) && (
+        <div className="text-xs text-gray-500 mt-0.5">{doctorSummary(h)}</div>
+      )}
       {h.address && (
         <div className="text-xs text-gray-400 truncate mt-0.5">{h.address}</div>
       )}
