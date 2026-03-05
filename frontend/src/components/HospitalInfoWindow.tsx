@@ -11,7 +11,7 @@ export function buildInfoWindowHtml({ hospital, distanceMeters }: HospitalInfoWi
   const rows: string[] = []
 
   const row = (icon: string, content: string) =>
-    `<div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:8px;"><span style="flex-shrink:0;">${icon}</span>${content}</div>`
+    `<div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:8px;min-width:0;"><span style="flex-shrink:0;">${icon}</span><span style="min-width:0;overflow-wrap:break-word;word-break:break-word;flex:1;">${content}</span></div>`
 
   if (h.address) rows.push(row('📍', escapeHtml(h.address)))
   if (h.phone) {
@@ -65,37 +65,40 @@ export function buildInfoWindowHtml({ hospital, distanceMeters }: HospitalInfoWi
   const lat = h.latitude ?? 0
   const lng = h.longitude ?? 0
   const navLinks = `
-    <div style="margin-top:10px;display:flex;flex-direction:column;gap:8px;">
+    <div style="margin-top:10px;display:flex;flex-direction:column;gap:8px;min-width:0;">
       <button
         type="button"
         data-action="reviews"
         data-hospital-id="${h.id}"
-        style="padding:8px 12px;background:#f8fafc;color:#475569;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;cursor:pointer;text-align:center;"
+        style="box-sizing:border-box;width:100%;max-width:100%;padding:8px 12px;background:#f8fafc;color:#475569;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;cursor:pointer;text-align:center;overflow-wrap:break-word;word-break:break-word;"
       >⭐ 리뷰 보기</button>
       <button
         type="button"
         data-action="directions"
         data-dest-lat="${lat}"
         data-dest-lng="${lng}"
-        style="display:flex;align-items:center;justify-content:center;gap:6px;width:100%;padding:8px 12px;background:#0ea5e9;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;"
+        style="box-sizing:border-box;width:100%;max-width:100%;display:flex;align-items:center;justify-content:center;gap:6px;padding:8px 12px;background:#0ea5e9;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;overflow-wrap:break-word;word-break:break-word;"
       >🗺️ 앱 내 길찾기</button>
     </div>
   `
 
   return `
     <div class="hospital-info-popup" style="
-      min-width:260px;max-width:300px;
+      width:100%;max-width:min(320px,92vw);
+      min-width:0;
+      box-sizing:border-box;
       font-family:-apple-system,sans-serif;font-size:13px;line-height:1.5;
       background:#fff;
       border-radius:16px;
       box-shadow:0 10px 40px rgba(0,0,0,0.12);
-      overflow:hidden;
+      overflow-x:hidden;
+      overflow-y:visible;
     ">
-      <div style="padding:14px 16px;background:linear-gradient(135deg,#f0f9ff 0%,#e0f2fe 100%);border-bottom:1px solid #e5e7eb;">
-        <div style="font-size:15px;font-weight:700;color:#0c4a6e;">${escapeHtml(h.name)}</div>
+      <div style="box-sizing:border-box;width:100%;max-width:100%;padding:14px 16px;background:linear-gradient(135deg,#f0f9ff 0%,#e0f2fe 100%);border-bottom:1px solid #e5e7eb;min-width:0;overflow:hidden;">
+        <div style="font-size:15px;font-weight:700;color:#0c4a6e;overflow-wrap:anywhere;word-break:break-word;min-width:0;">${escapeHtml(h.name)}</div>
         <div style="font-size:12px;color:#0369a1;margin-top:2px;">${formatDistance(distanceMeters)}</div>
       </div>
-      <div style="padding:12px 16px;color:#374151;">
+      <div style="box-sizing:border-box;width:100%;padding:12px 16px;color:#374151;overflow-wrap:break-word;word-break:break-word;min-width:0;">
         ${rows.join('')}
         ${navLinks}
       </div>

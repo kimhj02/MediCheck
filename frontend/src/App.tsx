@@ -19,16 +19,18 @@ function Header() {
           <span className="hidden sm:inline text-xs text-gray-500">내 주변 안심 병원 찾기</span>
         </div>
       </Link>
-      <nav className="flex items-center gap-2 sm:gap-3 shrink-0">
+      <nav className="flex items-center gap-2 sm:gap-3 min-w-0 shrink-0">
         {isLoading ? (
           <span className="text-sm text-gray-400">...</span>
         ) : user ? (
           <>
-            <span className="text-sm text-gray-600">{user.name || user.loginId}</span>
+            <span className="text-sm text-gray-600 truncate min-w-0 max-w-[120px] sm:max-w-none" title={user.name || user.loginId}>
+              {user.name || user.loginId}
+            </span>
             <button
               type="button"
               onClick={logout}
-              className="text-sm text-gray-500 hover:text-gray-700"
+              className="text-sm text-gray-500 hover:text-gray-700 shrink-0 whitespace-nowrap"
             >
               로그아웃
             </button>

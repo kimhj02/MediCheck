@@ -17,6 +17,19 @@ body {
   padding-top: env(safe-area-inset-top, 0);
 }
 
+/* 하단 병원 정보 시트 슬라이드 업 */
+.sheet-slide-up {
+  animation: sheet-slide-up 0.3s ease-out;
+}
+@keyframes sheet-slide-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
 /* 카카오 인포윈도우 커스텀 */
 .kakao-infowindow {
   padding: 0;

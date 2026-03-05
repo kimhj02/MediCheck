@@ -7,6 +7,7 @@ import {
   removeFavoriteHospital,
 } from '../api/hospitals'
 import { HospitalMap, type HospitalMapHandle } from '../components/HospitalMap'
+import { HospitalBottomSheet } from '../components/HospitalBottomSheet'
 import { HospitalListItem } from '../components/HospitalListItem'
 import { HospitalReviewModal } from '../components/HospitalReviewModal'
 import { useGeolocation } from '../hooks/useGeolocation'
@@ -59,6 +60,7 @@ export function MapPage() {
   const [favoriteIds, setFavoriteIds] = useState<Set<number>>(new Set())
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false)
   const [reviewHospitalId, setReviewHospitalId] = useState<number | null>(null)
+  const [selectedHospital, setSelectedHospital] = useState<NearbyHospital | null>(null)
   const openListButtonRef = useRef<HTMLButtonElement>(null)
 
   const { loaded: mapLoaded, error: mapError } = useKakaoMapScript()
@@ -362,8 +364,51 @@ export function MapPage() {
           centerLat={latitude}
           centerLng={longitude}
           hospitals={visibleHospitals}
-          onOpenReviews={setReviewHospitalId}
+          selectedHospital={selectedHospital}
+          onSelectHospital={setSelectedHospital}
+          onClosePopup={() => setSelectedHospital(null)}
         />
+        {selectedHospital && (
+          <HospitalBottomSheet
+            item={selectedHospital}
+            onClose={() => setSelectedHospital(null)}
+            onOpenReviews={setReviewHospitalId}
+            onRequestDirections={() => {
+              const h = selectedHospital.hospital
+              const lat = h.latitude ?? 0
+              const lng = h.longitude ?? 0
+              if (lat && lng) mapRef.current?.showRoute(lat, lng)
+            }}
+            isFavorite={favoriteIds.has(selectedHospital.hospital.id)}
+            onToggleFavorite={
+              token
+                ? async () => {
+                    const id = selectedHospital.hospital.id
+                    const prev = new Set(favoriteIds)
+                    const next = new Set(prev)
+                    const isAdding = !next.has(id)
+                    if (isAdding) next.add(id)
+                    else next.delete(id)
+                    setFavoriteIds(next)
+                    try {
+                      if (isAdding) {
+                        await addFavoriteHospital(token, id)
+                      } else {
+                        await removeFavoriteHospital(token, id)
+                      }
+                    } catch (err) {
+                      setFavoriteIds(prev)
+                      alert(
+                        err instanceof Error
+                          ? err.message
+                          : '즐겨찾기 처리 중 오류가 발생했습니다.'
+                      )
+                    }
+                  }
+                : undefined
+            }
+          />
+        )}
         {reviewHospitalId != null && (
           <HospitalReviewModal
             hospitalId={reviewHospitalId}

@@ -1,9 +1,6 @@
 import { useEffect, useRef, useImperativeHandle, forwardRef, useState } from 'react'
 import type { NearbyHospital } from '../types/hospital'
-import { buildInfoWindowHtml } from './HospitalInfoWindow'
 import { fetchDirections } from '../api/directions'
-import { addFavoriteHospital, removeFavoriteHospital } from '../api/hospitals'
-import { useAuth } from '../contexts/AuthContext'
 import { formatDistance, formatDuration } from '../utils/format'
 
 declare const kakao: {
@@ -52,17 +49,20 @@ declare const kakao: {
 export interface HospitalMapHandle {
   panTo: (lat: number, lng: number) => void
   showHospitalPopup: (item: NearbyHospital) => void
+  showRoute: (destLat: number, destLng: number) => void
 }
 
 interface HospitalMapProps {
   centerLat: number
   centerLng: number
   hospitals: NearbyHospital[]
-  onOpenReviews?: (hospitalId: number) => void
+  selectedHospital?: NearbyHospital | null
+  onSelectHospital?: (item: NearbyHospital) => void
+  onClosePopup?: () => void
 }
 
 export const HospitalMap = forwardRef<HospitalMapHandle, HospitalMapProps>(
-  function HospitalMap({ centerLat, centerLng, hospitals, onOpenReviews }, ref) {
+  function HospitalMap({ centerLat, centerLng, hospitals, selectedHospital, onSelectHospital, onClosePopup }, ref) {
     const containerRef = useRef<HTMLDivElement>(null)
     const mapRef = useRef<{
       setCenter: (pos: unknown) => void
@@ -71,14 +71,12 @@ export const HospitalMap = forwardRef<HospitalMapHandle, HospitalMapProps>(
     } | null>(null)
     const routePolylineRef = useRef<{ setMap: (m: unknown) => void } | null>(null)
     const [routeInfo, setRouteInfo] = useState<{ duration: number; distance: number } | null>(null)
-    const overlayRef = useRef<{ setMap: (m: unknown) => void } | null>(null)
     const markersRef = useRef<Array<{ setMap: (m: unknown) => void }>>([])
+    const selectedLabelOverlayRef = useRef<{ setMap: (m: unknown) => void } | null>(null)
     const clustererRef = useRef<{ addMarkers: (ms: unknown[]) => void; clear: () => void } | null>(
       null
     )
     const ignoreMapClickRef = useRef(false)
-    const { token } = useAuth()
-    const tokenRef = useRef<string | null>(null)
 
     const panToWithAnimation = (targetLat: number, targetLng: number) => {
       const map = mapRef.current
@@ -113,6 +111,50 @@ export const HospitalMap = forwardRef<HospitalMapHandle, HospitalMapProps>(
         routePolylineRef.current.setMap(null)
         routePolylineRef.current = null
       }
+    }
+
+    const clearSelectedLabel = () => {
+      if (selectedLabelOverlayRef.current) {
+        selectedLabelOverlayRef.current.setMap(null)
+        selectedLabelOverlayRef.current = null
+      }
+    }
+
+    const showSelectedLabel = (item: NearbyHospital) => {
+      const map = mapRef.current
+      if (!map || !window.kakao?.maps) return
+      clearSelectedLabel()
+      const h = item.hospital
+      const lat = h.latitude ?? 0
+      const lng = h.longitude ?? 0
+      if (lat === 0 && lng === 0) return
+      const labelEl = document.createElement('div')
+      labelEl.className = 'hospital-marker-label'
+      labelEl.textContent = h.name
+      labelEl.style.cssText = `
+        padding: 4px 10px;
+        font-size: 12px;
+        font-weight: 600;
+        color: #0c4a6e;
+        background: #fff;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        white-space: nowrap;
+        max-width: 160px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        border: 1px solid #e2e8f0;
+        pointer-events: none;
+      `
+      const overlay = new kakao.maps.CustomOverlay({
+        content: labelEl,
+        position: new kakao.maps.LatLng(lat, lng),
+        xAnchor: 0.5,
+        yAnchor: 1,
+        zIndex: 4,
+      })
+      overlay.setMap(map)
+      selectedLabelOverlayRef.current = overlay as { setMap: (m: unknown) => void }
     }
 
     const showRouteOnMap = async (destLat: number, destLng: number) => {
@@ -150,10 +192,6 @@ export const HospitalMap = forwardRef<HospitalMapHandle, HospitalMapProps>(
       }
     }
 
-    useEffect(() => {
-      tokenRef.current = token ?? null
-    }, [token])
-
     useImperativeHandle(ref, () => ({
       panTo(lat: number, lng: number) {
         panToWithAnimation(lat, lng)
@@ -164,26 +202,15 @@ export const HospitalMap = forwardRef<HospitalMapHandle, HospitalMapProps>(
         const lng = h.longitude ?? 0
         if (lat === 0 && lng === 0) return
         if (!mapRef.current || !window.kakao?.maps) return
-
         clearRoute()
-        if (overlayRef.current) {
-          overlayRef.current.setMap(null)
-          overlayRef.current = null
-        }
-
-        const overlay = new kakao.maps.CustomOverlay({
-          content: buildInfoWindowHtml({ hospital: h, distanceMeters: item.distanceMeters }),
-          position: new kakao.maps.LatLng(lat, lng),
-          xAnchor: 0.5,
-          yAnchor: 1.2,
-          zIndex: 10,
-        })
-        overlay.setMap(mapRef.current as unknown)
-        overlayRef.current = overlay
-
+        showSelectedLabel(item)
+        onSelectHospital?.(item)
         panToWithAnimation(lat, lng)
       },
-    }), [])
+      showRoute(destLat: number, destLng: number) {
+        showRouteOnMap(destLat, destLng)
+      },
+    }), [onSelectHospital])
 
     useEffect(() => {
       if (!containerRef.current || !window.kakao?.maps) return
@@ -223,76 +250,19 @@ export const HospitalMap = forwardRef<HospitalMapHandle, HospitalMapProps>(
       })
       myLocationOverlay.setMap(map)
 
-      // 앱 내 길찾기 버튼 클릭 (이벤트 위임)
-      const onDocClick = (e: MouseEvent) => {
-        const target = e.target as HTMLElement
-        const directionsBtn = target.closest('[data-action="directions"]')
-        if (directionsBtn instanceof HTMLElement) {
-          const destLat = parseFloat(directionsBtn.dataset.destLat ?? '0')
-          const destLng = parseFloat(directionsBtn.dataset.destLng ?? '0')
-          if (destLat && destLng) showRouteOnMap(destLat, destLng)
-          return
-        }
-
-        const reviewsBtn = target.closest('[data-action="reviews"]')
-        if (reviewsBtn instanceof HTMLElement) {
-          const idRaw = reviewsBtn.getAttribute('data-hospital-id')
-          const hospitalId = idRaw ? Number(idRaw) : NaN
-          if (hospitalId && !Number.isNaN(hospitalId)) onOpenReviews?.(hospitalId)
-          return
-        }
-
-        const favoriteBtn = target.closest('[data-action="favorite"]')
-        if (favoriteBtn instanceof HTMLElement) {
-          const idRaw = favoriteBtn.getAttribute('data-hospital-id')
-          const hospitalId = idRaw ? Number(idRaw) : NaN
-          if (!hospitalId || Number.isNaN(hospitalId)) return
-          const currentToken = tokenRef.current
-          if (!currentToken) {
-            alert('즐겨찾기는 로그인 후 이용해 주세요.')
-            return
-          }
-          const isActive = favoriteBtn.getAttribute('data-active') === 'true'
-          const prevActive = isActive
-          const nextActive = !isActive
-          favoriteBtn.setAttribute('data-active', nextActive ? 'true' : 'false')
-          favoriteBtn.textContent = nextActive ? '★' : '☆'
-          ;(async () => {
-            try {
-              if (isActive) {
-                await removeFavoriteHospital(currentToken, hospitalId)
-              } else {
-                await addFavoriteHospital(currentToken, hospitalId)
-              }
-            } catch (err) {
-              // 롤백
-              favoriteBtn.setAttribute('data-active', prevActive ? 'true' : 'false')
-              favoriteBtn.textContent = prevActive ? '★' : '☆'
-              alert(
-                err instanceof Error ? err.message : '즐겨찾기 처리 중 오류가 발생했습니다.'
-              )
-            }
-          })()
-        }
-      }
-      document.addEventListener('click', onDocClick)
-
-      // 빈 지도 클릭 시 병원 정보 팝업 닫기 및 경로 제거
+      // 빈 지도 클릭 시 이름 라벨 제거, 하단 시트 닫기, 경로 제거
       const onMapClick = () => {
         if (ignoreMapClickRef.current) {
           ignoreMapClickRef.current = false
           return
         }
         clearRoute()
-        if (overlayRef.current) {
-          overlayRef.current.setMap(null)
-          overlayRef.current = null
-        }
+        clearSelectedLabel()
+        onClosePopup?.()
       }
       kakao.maps.event.addListener(map, 'click', onMapClick)
 
       return () => {
-        document.removeEventListener('click', onDocClick)
         myLocationOverlay.setMap(null)
         clearRoute()
         if (kakao.maps.event.removeListener) {
@@ -304,19 +274,26 @@ export const HospitalMap = forwardRef<HospitalMapHandle, HospitalMapProps>(
         }
         mapRef.current = null
       }
-    }, [centerLat, centerLng])
+    }, [centerLat, centerLng, onClosePopup])
 
     useEffect(() => {
       const map = mapRef.current
       const clusterer = clustererRef.current
       if (!map || !window.kakao?.maps || !clusterer) return
 
-      // 기존 마커 및 클러스터 제거
+      // 기존 마커 및 클러스터 제거 (선택된 병원 이름 라벨은 selectedLabelOverlayRef로 따로 관리)
       markersRef.current.forEach((m) => m.setMap(null))
       markersRef.current = []
       clusterer.clear()
 
       const newMarkers: Array<{ setMap: (m: unknown) => void }> = []
+
+      const openSheet = (item: NearbyHospital, itemLat: number, itemLng: number) => {
+        ignoreMapClickRef.current = true
+        showSelectedLabel(item)
+        onSelectHospital?.(item)
+        panToWithAnimation(itemLat, itemLng)
+      }
 
       hospitals.forEach((item) => {
         const h = item.hospital
@@ -330,23 +307,7 @@ export const HospitalMap = forwardRef<HospitalMapHandle, HospitalMapProps>(
         newMarkers.push(marker)
 
         kakao.maps.event.addListener(marker, 'click', () => {
-          ignoreMapClickRef.current = true
-          if (overlayRef.current) {
-            overlayRef.current.setMap(null)
-            overlayRef.current = null
-          }
-
-          const overlay = new kakao.maps.CustomOverlay({
-            content: buildInfoWindowHtml({ hospital: h, distanceMeters: item.distanceMeters }),
-            position: new kakao.maps.LatLng(lat, lng),
-            xAnchor: 0.5,
-            yAnchor: 1.2,
-            zIndex: 10,
-          })
-          overlay.setMap(map)
-          overlayRef.current = overlay
-
-          panToWithAnimation(lat, lng)
+          openSheet(item, lat, lng)
         })
       })
 
@@ -358,12 +319,13 @@ export const HospitalMap = forwardRef<HospitalMapHandle, HospitalMapProps>(
       return () => {
         markersRef.current.forEach((m) => m.setMap(null))
         markersRef.current = []
-        if (overlayRef.current) {
-          overlayRef.current.setMap(null)
-          overlayRef.current = null
-        }
       }
-    }, [hospitals])
+    }, [hospitals, onSelectHospital])
+
+    // 시트가 닫히면(selectedHospital이 null) 선택된 병원 이름 라벨도 제거
+    useEffect(() => {
+      if (!selectedHospital) clearSelectedLabel()
+    }, [selectedHospital])
 
     return (
       <div className="relative w-full h-full min-h-[400px]">
