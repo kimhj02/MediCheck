@@ -1,6 +1,7 @@
 package com.medicheck.server.controller;
 
 import com.medicheck.server.domain.repository.UserRepository;
+import com.medicheck.server.dto.HospitalReviewRequest;
 import com.medicheck.server.dto.HospitalReviewResponse;
 import com.medicheck.server.service.HospitalReviewService;
 import lombok.RequiredArgsConstructor;
@@ -13,7 +14,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.util.Map;
+import jakarta.validation.Valid;
 
 /**
  * 병원별 리뷰 API.
@@ -63,13 +64,12 @@ public class HospitalReviewController {
     @PostMapping
     public ResponseEntity<HospitalReviewResponse> createOrUpdate(
             @PathVariable Long hospitalId,
-            @RequestBody Map<String, Object> body,
+            @RequestBody @Valid HospitalReviewRequest request,
             Authentication authentication
     ) {
         Long userId = getCurrentUserId(authentication);
-        int rating = body.get("rating") != null ? ((Number) body.get("rating")).intValue() : 0;
-        String comment = body.get("comment") != null ? body.get("comment").toString() : null;
-        HospitalReviewResponse response = reviewService.createOrUpdate(userId, hospitalId, rating, comment);
+        HospitalReviewResponse response = reviewService.createOrUpdate(
+                userId, hospitalId, request.getRating(), request.getComment());
         return ResponseEntity.ok(response);
     }
 
