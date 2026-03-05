@@ -179,11 +179,11 @@ export function MapPage() {
           aria-hidden
         />
       )}
-      {/* 병원 목록 패널: 모바일 전체화면 오버레이, 데스크톱 좌측 패널 */}
+      {/* 병원 목록 패널: 모바일에서 열면 화면 전체, 데스크톱은 좌측 패널 */}
       <aside
         className={`shrink-0 bg-white border-r border-gray-100 shadow-sm transition-all duration-300
           fixed inset-y-0 left-0 top-14 z-30 w-full max-w-[min(400px,92vw)] md:relative md:inset-auto md:top-auto md:z-auto md:w-0 md:max-w-none
-          ${isListOpen ? 'translate-x-0 md:w-80' : '-translate-x-full md:translate-x-0 md:overflow-hidden'}`}
+          ${isListOpen ? 'translate-x-0 max-w-none md:max-w-[min(400px,92vw)] md:w-80' : '-translate-x-full md:translate-x-0 md:overflow-hidden'}`}
         inert={!isListOpen || undefined}
         aria-hidden={!isListOpen}
       >
