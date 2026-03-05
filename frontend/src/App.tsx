@@ -9,26 +9,31 @@ import { FavoriteHospitalsPage } from './pages/FavoriteHospitalsPage'
 function Header() {
   const { user, logout, isLoading } = useAuth()
   return (
-    <header className="h-14 bg-white/95 backdrop-blur border-b border-gray-100 flex items-center justify-between px-6 shadow-sm">
-      <Link to="/" className="flex items-center gap-3">
-        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-sky-500 to-cyan-600 flex items-center justify-center text-white text-sm font-bold">
-          M
+    <header className="h-14 min-h-[44px] bg-white/95 backdrop-blur border-b border-gray-100 flex items-center justify-between px-4 sm:px-6 shadow-sm safe-area-pt">
+      <Link to="/" className="flex items-center gap-2 sm:gap-3 min-w-0">
+        <div className="w-8 h-8 shrink-0 rounded-lg bg-gradient-to-br from-sky-500 to-cyan-600 flex items-center justify-center text-white">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5" aria-labelledby="app-logo-title">
+            <title id="app-logo-title">MediCheck 로고</title>
+            <path d="M11 4v16h2V4h-2zm-7 7h16v2H4v-2z"/>
+          </svg>
         </div>
-        <div>
-          <h1 className="text-lg font-bold text-gray-800">MediCheck</h1>
-          <span className="text-xs text-gray-500">내 주변 안심 병원 찾기</span>
+        <div className="min-w-0">
+          <h1 className="text-base sm:text-lg font-bold text-gray-800 truncate">MediCheck</h1>
+          <span className="hidden sm:inline text-xs text-gray-500">내 주변 안심 병원 찾기</span>
         </div>
       </Link>
-      <nav className="flex items-center gap-3">
+      <nav className="flex items-center gap-2 sm:gap-3 min-w-0 shrink-0">
         {isLoading ? (
           <span className="text-sm text-gray-400">...</span>
         ) : user ? (
           <>
-            <span className="text-sm text-gray-600">{user.name || user.loginId}</span>
+            <span className="text-sm text-gray-600 truncate min-w-0 max-w-[120px] sm:max-w-none" title={user.name || user.loginId}>
+              {user.name || user.loginId}
+            </span>
             <button
               type="button"
               onClick={logout}
-              className="text-sm text-gray-500 hover:text-gray-700"
+              className="text-sm text-gray-500 hover:text-gray-700 shrink-0 whitespace-nowrap"
             >
               로그아웃
             </button>

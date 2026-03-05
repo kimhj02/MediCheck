@@ -65,6 +65,11 @@ export function HospitalListItem({
           {formatDistance(item.distanceMeters)}
         </span>
       </div>
+      {(h.averageRating != null && (h.reviewCount ?? 0) > 0) && (
+        <div className="text-xs text-amber-600 mt-0.5">
+          ★ {h.averageRating.toFixed(1)} (리뷰 {h.reviewCount}개)
+        </div>
+      )}
       {doctorSummary(h) && (
         <div className="text-xs text-gray-500 mt-0.5">{doctorSummary(h)}</div>
       )}
