@@ -38,7 +38,10 @@ public class SecurityConfig {
                                 "/api/hospitals/sync/region",
                                 "/api/hospitals/sync/location")
                         .hasRole("ADMIN")
-                        // 공개 인증 관련 엔드포인트만 허용 (me는 인증 필요)
+                        // 내 리뷰 조회는 인증 필요 (permitAll보다 먼저 매칭)
+                        .requestMatchers(HttpMethod.GET, "/api/hospitals/*/reviews/me")
+                        .authenticated()
+                        // 병원 목록/상세/리뷰 목록 등 공개 GET
                         .requestMatchers(HttpMethod.GET, "/api/hospitals/**")
                         .permitAll()
                         .requestMatchers(
