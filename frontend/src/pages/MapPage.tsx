@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, useEffect } from 'react'
+import { useCallback, useMemo, useRef, useState, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
   fetchNearbyHospitals,
@@ -62,6 +62,8 @@ export function MapPage() {
   const [reviewHospitalId, setReviewHospitalId] = useState<number | null>(null)
   const [selectedHospital, setSelectedHospital] = useState<NearbyHospital | null>(null)
   const openListButtonRef = useRef<HTMLButtonElement>(null)
+
+  const handleClosePopup = useCallback(() => setSelectedHospital(null), [])
 
   const { loaded: mapLoaded, error: mapError } = useKakaoMapScript()
 
@@ -366,12 +368,12 @@ export function MapPage() {
           hospitals={visibleHospitals}
           selectedHospital={selectedHospital}
           onSelectHospital={setSelectedHospital}
-          onClosePopup={() => setSelectedHospital(null)}
+          onClosePopup={handleClosePopup}
         />
         {selectedHospital && (
           <HospitalBottomSheet
             item={selectedHospital}
-            onClose={() => setSelectedHospital(null)}
+            onClose={handleClosePopup}
             onOpenReviews={setReviewHospitalId}
             onRequestDirections={() => {
               const h = selectedHospital.hospital
