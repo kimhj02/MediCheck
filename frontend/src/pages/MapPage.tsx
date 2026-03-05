@@ -49,7 +49,9 @@ function filterHospitals(
 
 export function MapPage() {
   const [radius, setRadius] = useState(3000)
-  const [isListOpen, setIsListOpen] = useState(true)
+  const [isListOpen, setIsListOpen] = useState(
+    () => typeof window !== 'undefined' && window.innerWidth >= 768
+  )
   const [searchKeyword, setSearchKeyword] = useState('')
   const [departmentFilter, setDepartmentFilter] = useState('')
   const mapRef = useRef<HospitalMapHandle>(null)
@@ -57,8 +59,14 @@ export function MapPage() {
   const [favoriteIds, setFavoriteIds] = useState<Set<number>>(new Set())
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false)
   const [reviewHospitalId, setReviewHospitalId] = useState<number | null>(null)
+  const openListButtonRef = useRef<HTMLButtonElement>(null)
 
   const { loaded: mapLoaded, error: mapError } = useKakaoMapScript()
+
+  // 목록 닫을 때 포커스를 '목록 열기' 버튼으로 옮겨 aria-hidden 경고 방지
+  useEffect(() => {
+    if (!isListOpen) openListButtonRef.current?.focus({ preventScroll: true })
+  }, [isListOpen])
   const { latitude, longitude, loading: geoLoading, error: geoError } = useGeolocation()
 
   const {
@@ -158,12 +166,20 @@ export function MapPage() {
   }
 
   return (
-    <div className="flex h-[calc(100vh-4rem)] bg-gray-50">
-      {/* 병원 목록 패널 */}
+    <div className="flex h-[calc(100vh-4rem)] md:h-[calc(100vh-4rem)] min-h-0 bg-gray-50 safe-area-pb">
+      {/* 모바일: 목록 열렸을 때 배경 딤드 (탭하면 닫기) */}
+      {isListOpen && (
+        <div
+          className="fixed inset-0 top-14 z-20 bg-black/40 md:hidden"
+          onClick={() => setIsListOpen(false)}
+          aria-hidden
+        />
+      )}
+      {/* 병원 목록 패널: 모바일 전체화면 오버레이, 데스크톱 좌측 패널 */}
       <aside
-        className={`shrink-0 bg-white border-r border-gray-100 shadow-sm transition-all duration-300 ${
-          isListOpen ? 'w-80' : 'w-0 overflow-hidden'
-        }`}
+        className={`shrink-0 bg-white border-r border-gray-100 shadow-sm transition-all duration-300
+          fixed inset-y-0 left-0 top-14 z-30 w-full max-w-[min(400px,92vw)] md:relative md:inset-auto md:top-auto md:z-auto md:w-0 md:max-w-none
+          ${isListOpen ? 'translate-x-0 md:w-80' : '-translate-x-full md:translate-x-0 md:overflow-hidden'}`}
         inert={!isListOpen || undefined}
         aria-hidden={!isListOpen}
       >
@@ -174,7 +190,7 @@ export function MapPage() {
               <button
                 type="button"
                 onClick={() => setIsListOpen(false)}
-                className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500"
+                className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-500 -m-2 md:min-w-0 md:min-h-0 md:p-1.5"
                 aria-label="목록 닫기"
               >
                 ◀
@@ -183,7 +199,7 @@ export function MapPage() {
             <button
               type="button"
               onClick={() => mapRef.current?.panTo(latitude, longitude)}
-              className="w-full flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl bg-sky-500 hover:bg-sky-600 text-white text-sm font-medium shadow-sm"
+              className="w-full min-h-[44px] flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl bg-sky-500 hover:bg-sky-600 text-white text-sm font-medium shadow-sm"
               aria-label="내 위치로 이동"
             >
               <span aria-hidden>📍</span>
@@ -329,12 +345,13 @@ export function MapPage() {
       </aside>
 
       {/* 지도 영역 */}
-      <div className="flex-1 relative">
+      <div className="flex-1 relative min-w-0">
         {!isListOpen && (
           <button
+            ref={openListButtonRef}
             type="button"
             onClick={() => setIsListOpen(true)}
-            className="absolute top-1/2 left-0 -translate-y-1/2 translate-x-1/2 z-20 p-2.5 rounded-r-xl bg-white/95 border border-gray-200 shadow hover:bg-white"
+            className="absolute top-1/2 left-0 -translate-y-1/2 translate-x-1/2 z-20 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-r-xl bg-white/95 border border-gray-200 shadow hover:bg-white"
             aria-label="근처 병원 목록 열기"
           >
             ▶
@@ -372,7 +389,7 @@ export function MapPage() {
               <button
                 type="button"
                 onClick={() => setIsListOpen(true)}
-                className="p-2.5 bg-white/95 rounded-xl shadow hover:bg-white"
+                className="min-w-[44px] min-h-[44px] flex items-center justify-center p-2.5 bg-white/95 rounded-xl shadow hover:bg-white"
                 aria-label="목록 열기"
               >
                 ▶
