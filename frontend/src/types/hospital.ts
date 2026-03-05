@@ -15,6 +15,10 @@ export interface Hospital {
   mdeptResidentCount: number | null
   detySpecialistCount: number | null
   cmdcSpecialistCount: number | null
+  /** 평균 별점 (1~5) */
+  averageRating: number | null
+  /** 리뷰 개수 */
+  reviewCount: number | null
 }
 
 export interface NearbyHospital {

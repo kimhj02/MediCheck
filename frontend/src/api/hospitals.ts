@@ -56,3 +56,83 @@ export async function removeFavoriteHospital(token: string, hospitalId: number):
   if (res.status === 401) throw new Error('로그인이 필요합니다.')
   if (!res.ok) throw new Error('즐겨찾기 해제 실패')
 }
+
+// --- 병원 리뷰 API ---
+
+export interface HospitalReview {
+  id: number
+  userId: number
+  userDisplayName: string
+  rating: number
+  comment: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface ReviewPage {
+  content: HospitalReview[]
+  totalElements: number
+  totalPages: number
+  number: number
+  size: number
+}
+
+export async function fetchHospitalReviews(
+  hospitalId: number,
+  page = 0,
+  size = 20
+): Promise<ReviewPage> {
+  const res = await fetch(
+    `${API_BASE}/hospitals/${hospitalId}/reviews?page=${page}&size=${size}`
+  )
+  if (!res.ok) throw new Error('리뷰 목록 조회 실패')
+  return res.json()
+}
+
+export async function fetchMyReview(
+  token: string,
+  hospitalId: number
+): Promise<HospitalReview | null> {
+  const res = await fetch(
+    `${API_BASE}/hospitals/${hospitalId}/reviews/me`,
+    { headers: { Authorization: `Bearer ${token}` } }
+  )
+  if (res.status === 401) throw new Error('로그인이 필요합니다.')
+  if (res.status === 204) return null
+  if (!res.ok) throw new Error('내 리뷰 조회 실패')
+  return res.json()
+}
+
+export async function submitHospitalReview(
+  token: string,
+  hospitalId: number,
+  rating: number,
+  comment: string
+): Promise<HospitalReview> {
+  const res = await fetch(`${API_BASE}/hospitals/${hospitalId}/reviews`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ rating, comment: comment || null }),
+  })
+  if (res.status === 401) throw new Error('로그인이 필요합니다.')
+  if (!res.ok) throw new Error('리뷰 저장 실패')
+  return res.json()
+}
+
+export async function deleteMyReview(
+  token: string,
+  hospitalId: number
+): Promise<void> {
+  const res = await fetch(
+    `${API_BASE}/hospitals/${hospitalId}/reviews/me`,
+    {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+    }
+  )
+  if (res.status === 401) throw new Error('로그인이 필요합니다.')
+  if (!res.ok) throw new Error('리뷰 삭제 실패')
+}

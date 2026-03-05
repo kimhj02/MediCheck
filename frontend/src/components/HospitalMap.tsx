@@ -58,10 +58,11 @@ interface HospitalMapProps {
   centerLat: number
   centerLng: number
   hospitals: NearbyHospital[]
+  onOpenReviews?: (hospitalId: number) => void
 }
 
 export const HospitalMap = forwardRef<HospitalMapHandle, HospitalMapProps>(
-  function HospitalMap({ centerLat, centerLng, hospitals }, ref) {
+  function HospitalMap({ centerLat, centerLng, hospitals, onOpenReviews }, ref) {
     const containerRef = useRef<HTMLDivElement>(null)
     const mapRef = useRef<{
       setCenter: (pos: unknown) => void
@@ -230,6 +231,14 @@ export const HospitalMap = forwardRef<HospitalMapHandle, HospitalMapProps>(
           const destLat = parseFloat(directionsBtn.dataset.destLat ?? '0')
           const destLng = parseFloat(directionsBtn.dataset.destLng ?? '0')
           if (destLat && destLng) showRouteOnMap(destLat, destLng)
+          return
+        }
+
+        const reviewsBtn = target.closest('[data-action="reviews"]')
+        if (reviewsBtn instanceof HTMLElement) {
+          const idRaw = reviewsBtn.getAttribute('data-hospital-id')
+          const hospitalId = idRaw ? Number(idRaw) : NaN
+          if (hospitalId && !Number.isNaN(hospitalId)) onOpenReviews?.(hospitalId)
           return
         }
 

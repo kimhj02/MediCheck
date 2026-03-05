@@ -5,6 +5,7 @@ import com.medicheck.server.domain.repository.HospitalRepository;
 import com.medicheck.server.domain.repository.HospitalSpecification;
 import com.medicheck.server.dto.HospitalResponse;
 import com.medicheck.server.dto.NearbyHospitalResponse;
+import com.medicheck.server.dto.ReviewSummary;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -27,6 +28,7 @@ import java.util.stream.Collectors;
 public class HospitalService {
 
     private final HospitalRepository hospitalRepository;
+    private final HospitalReviewService reviewService;
     /** 근처 병원 조회 시 한 번에 반환할 최대 개수 (일단 500개로 상한 설정). */
     private static final int NEARBY_MAX_RESULTS = 500;
     /** 근처 병원 조회에서 허용할 최대 반경 (미터) — 예: 50km */
@@ -53,7 +55,18 @@ public class HospitalService {
      * @return 병원이 있으면 HospitalResponse, 없으면 empty
      */
     public Optional<HospitalResponse> findById(Long id) {
-        return hospitalRepository.findById(id).map(HospitalResponse::from);
+        return hospitalRepository.findById(id).map(h -> {
+            HospitalResponse hr = HospitalResponse.from(h);
+            Map<Long, ReviewSummary> map = reviewService.getReviewSummaryByHospitalIds(List.of(id));
+            ReviewSummary summary = map.get(id);
+            if (summary != null) {
+                hr = hr.toBuilder()
+                        .averageRating(summary.getAverageRating())
+                        .reviewCount(summary.getReviewCount().intValue())
+                        .build();
+            }
+            return hr;
+        });
     }
 
     /**
@@ -108,11 +121,25 @@ public class HospitalService {
                 truncated
         ));
 
+        Map<Long, ReviewSummary> reviewSummaryMap = reviewService.getReviewSummaryByHospitalIds(orderedIds);
+
         return orderedIds.stream()
                 .map(id -> {
                     Hospital h = idToHospital.get(id);
                     Double dist = idToDistance.get(id);
-                    return h != null && dist != null ? NearbyHospitalResponse.from(h, dist) : null;
+                    if (h == null || dist == null) return null;
+                    HospitalResponse hr = HospitalResponse.from(h);
+                    ReviewSummary summary = reviewSummaryMap.get(id);
+                    if (summary != null) {
+                        hr = hr.toBuilder()
+                                .averageRating(summary.getAverageRating())
+                                .reviewCount(summary.getReviewCount().intValue())
+                                .build();
+                    }
+                    return NearbyHospitalResponse.builder()
+                            .hospital(hr)
+                            .distanceMeters(dist)
+                            .build();
                 })
                 .filter(r -> r != null)
                 .toList();

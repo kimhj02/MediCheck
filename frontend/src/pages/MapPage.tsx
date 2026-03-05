@@ -8,6 +8,7 @@ import {
 } from '../api/hospitals'
 import { HospitalMap, type HospitalMapHandle } from '../components/HospitalMap'
 import { HospitalListItem } from '../components/HospitalListItem'
+import { HospitalReviewModal } from '../components/HospitalReviewModal'
 import { useGeolocation } from '../hooks/useGeolocation'
 import { useKakaoMapScript } from '../hooks/useKakaoMapScript'
 import type { NearbyHospital } from '../types/hospital'
@@ -55,6 +56,7 @@ export function MapPage() {
   const { token } = useAuth()
   const [favoriteIds, setFavoriteIds] = useState<Set<number>>(new Set())
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false)
+  const [reviewHospitalId, setReviewHospitalId] = useState<number | null>(null)
 
   const { loaded: mapLoaded, error: mapError } = useKakaoMapScript()
   const { latitude, longitude, loading: geoLoading, error: geoError } = useGeolocation()
@@ -343,7 +345,18 @@ export function MapPage() {
           centerLat={latitude}
           centerLng={longitude}
           hospitals={visibleHospitals}
+          onOpenReviews={setReviewHospitalId}
         />
+        {reviewHospitalId != null && (
+          <HospitalReviewModal
+            hospitalId={reviewHospitalId}
+            hospitalName={
+              visibleHospitals.find((h) => h.hospital.id === reviewHospitalId)?.hospital.name ??
+              '병원'
+            }
+            onClose={() => setReviewHospitalId(null)}
+          />
+        )}
 
         {/* 플로팅 컨트롤 - 병원 개수만 표시 */}
         <div className="absolute top-4 right-4 flex items-start gap-2 pointer-events-none">

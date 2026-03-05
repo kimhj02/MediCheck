@@ -49,6 +49,11 @@ export function buildInfoWindowHtml({ hospital, distanceMeters }: HospitalInfoWi
   if (staffParts.length > 0)
     rows.push(row('👥', staffParts.join(', ')))
   if (h.establishedDate) rows.push(row('📅', formatDate(h.establishedDate)))
+  if (h.averageRating != null && h.reviewCount != null && h.reviewCount > 0) {
+    rows.push(
+      row('⭐', `평점 ${h.averageRating.toFixed(1)} (리뷰 ${h.reviewCount}개)`)
+    )
+  }
   rows.push(row('📏', formatDistance(distanceMeters)))
   rows.push(
     row(
@@ -60,7 +65,13 @@ export function buildInfoWindowHtml({ hospital, distanceMeters }: HospitalInfoWi
   const lat = h.latitude ?? 0
   const lng = h.longitude ?? 0
   const navLinks = `
-    <div style="margin-top:10px;">
+    <div style="margin-top:10px;display:flex;flex-direction:column;gap:8px;">
+      <button
+        type="button"
+        data-action="reviews"
+        data-hospital-id="${h.id}"
+        style="padding:8px 12px;background:#f8fafc;color:#475569;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;cursor:pointer;text-align:center;"
+      >⭐ 리뷰 보기</button>
       <button
         type="button"
         data-action="directions"

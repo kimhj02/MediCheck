@@ -11,7 +11,7 @@ import java.time.LocalDate;
  * 병원 목록/상세 API 응답 DTO.
  */
 @Getter
-@Builder
+@Builder(toBuilder = true)
 public class HospitalResponse {
 
     private Long id;
@@ -31,6 +31,11 @@ public class HospitalResponse {
     private Integer detySpecialistCount;
     private Integer cmdcSpecialistCount;
 
+    /** 평균 별점 (1~5, 리뷰 없으면 null) */
+    private Double averageRating;
+    /** 리뷰 개수 */
+    private Integer reviewCount;
+
     public static HospitalResponse from(Hospital hospital) {
         return HospitalResponse.builder()
                 .id(hospital.getId())
@@ -49,6 +54,8 @@ public class HospitalResponse {
                 .mdeptResidentCount(hospital.getMdeptResidentCount())
                 .detySpecialistCount(hospital.getDetySpecialistCount())
                 .cmdcSpecialistCount(hospital.getCmdcSpecialistCount())
+                .averageRating(null)
+                .reviewCount(null)
                 .build();
     }
 }

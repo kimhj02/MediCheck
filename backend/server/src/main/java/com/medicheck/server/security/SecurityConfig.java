@@ -39,11 +39,12 @@ public class SecurityConfig {
                                 "/api/hospitals/sync/location")
                         .hasRole("ADMIN")
                         // 공개 인증 관련 엔드포인트만 허용 (me는 인증 필요)
+                        .requestMatchers(HttpMethod.GET, "/api/hospitals/**")
+                        .permitAll()
                         .requestMatchers(
                                 "/api/auth/login",
                                 "/api/auth/signup",
                                 "/api/auth/login/kakao",
-                                "/api/hospitals/**",
                                 "/api/directions/**",
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
