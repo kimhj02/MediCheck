@@ -11,8 +11,10 @@ function Header() {
   return (
     <header className="h-14 min-h-[44px] bg-white/95 backdrop-blur border-b border-gray-100 flex items-center justify-between px-4 sm:px-6 shadow-sm safe-area-pt">
       <Link to="/" className="flex items-center gap-2 sm:gap-3 min-w-0">
-        <div className="w-8 h-8 shrink-0 rounded-lg bg-gradient-to-br from-sky-500 to-cyan-600 flex items-center justify-center text-white text-sm font-bold">
-          M
+        <div className="w-8 h-8 shrink-0 rounded-lg bg-gradient-to-br from-sky-500 to-cyan-600 flex items-center justify-center text-white">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5" aria-hidden>
+            <path d="M11 4v16h2V4h-2zm-7 7h16v2H4v-2z"/>
+          </svg>
         </div>
         <div className="min-w-0">
           <h1 className="text-base sm:text-lg font-bold text-gray-800 truncate">MediCheck</h1>

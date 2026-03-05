@@ -12,7 +12,9 @@ declare const kakao: {
     LatLngBounds: new (sw: unknown, ne?: unknown) => {
       extend: (point: unknown) => void
     }
-    Marker: new (options: { position: unknown; map?: unknown }) => unknown
+    Size: new (width: number, height: number) => unknown
+    MarkerImage: new (url: string, size: unknown, option?: unknown) => unknown
+    Marker: new (options: { position: unknown; image?: unknown; map?: unknown }) => unknown
     CustomOverlay: new (options: {
       content: string | HTMLElement
       position: unknown
@@ -233,6 +235,15 @@ export const HospitalMap = forwardRef<HospitalMapHandle, HospitalMapProps>(
         panToWithAnimation(itemLat, itemLng)
       }
 
+      // 작은 병원 마커 이미지 (기본 마커보다 축소)
+      const markerSize = new kakao.maps.Size(20, 26)
+      const markerImageUrl =
+        'data:image/svg+xml,' +
+        encodeURIComponent(
+          '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 30"><path fill="%23e53935" d="M12 0C5.4 0 0 5.4 0 12c0 9 12 18 12 18s12-9 12-18C24 5.4 18.6 0 12 0z"/><circle fill="white" cx="12" cy="12" r="5"/></svg>'
+        )
+      const markerImage = new kakao.maps.MarkerImage(markerImageUrl, markerSize)
+
       hospitals.forEach((item) => {
         const h = item.hospital
         const lat = h.latitude ?? 0
@@ -241,6 +252,7 @@ export const HospitalMap = forwardRef<HospitalMapHandle, HospitalMapProps>(
 
         const marker = new kakao.maps.Marker({
           position: new kakao.maps.LatLng(lat, lng),
+          image: markerImage,
         }) as { setMap: (m: unknown) => void }
         newMarkers.push(marker)
 
