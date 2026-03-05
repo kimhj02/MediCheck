@@ -375,12 +375,6 @@ export function MapPage() {
             item={selectedHospital}
             onClose={handleClosePopup}
             onOpenReviews={setReviewHospitalId}
-            onRequestDirections={() => {
-              const h = selectedHospital.hospital
-              const lat = h.latitude ?? 0
-              const lng = h.longitude ?? 0
-              if (lat && lng) mapRef.current?.showRoute(lat, lng)
-            }}
             isFavorite={favoriteIds.has(selectedHospital.hospital.id)}
             onToggleFavorite={
               token

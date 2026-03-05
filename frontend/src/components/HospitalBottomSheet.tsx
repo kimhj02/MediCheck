@@ -5,9 +5,20 @@ interface HospitalBottomSheetProps {
   item: NearbyHospital
   onClose: () => void
   onOpenReviews: (hospitalId: number) => void
-  onRequestDirections: () => void
   isFavorite?: boolean
   onToggleFavorite?: () => void
+}
+
+/** 카카오맵 앱/웹 목적지 길찾기 URL */
+function kakaoMapDirectionsUrl(lat: number, lng: number, name: string): string {
+  const encName = encodeURIComponent(name)
+  return `https://map.kakao.com/link/to/${encName},${lat},${lng}`
+}
+
+/** 네이버 지도 웹에서 장소 검색 (브라우저에서 바로 열림) */
+function naverMapSearchUrl(name: string, address: string | null): string {
+  const query = [name, address].filter(Boolean).join(' ')
+  return `https://map.naver.com/v5/search/${encodeURIComponent(query)}`
 }
 
 function doctorSummary(h: NearbyHospital['hospital']): string | null {
@@ -25,7 +36,6 @@ export function HospitalBottomSheet({
   item,
   onClose,
   onOpenReviews,
-  onRequestDirections,
   isFavorite,
   onToggleFavorite,
 }: HospitalBottomSheetProps) {
@@ -100,26 +110,32 @@ export function HospitalBottomSheet({
           )}
         </div>
 
-        {/* 액션 버튼: 출발 / 도착 / 리뷰 (네이버 스타일 3버튼) */}
-        <div className="px-4 pb-4 flex gap-2">
+        {/* 액션 버튼: 길찾기(지도 앱) + 리뷰 보기 */}
+        <div className="px-4 pb-3 space-y-2">
           {hasDirections && (
-            <button
-              type="button"
-              onClick={() => {
-                onRequestDirections()
-                onClose()
-              }}
-              className="flex-1 min-h-[44px] rounded-xl bg-sky-500 hover:bg-sky-600 font-medium text-sm text-white"
-            >
-              앱 내 길찾기
-            </button>
+            <div className="flex gap-2">
+              <a
+                href={kakaoMapDirectionsUrl(lat, lng, h.name)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 min-h-[44px] rounded-xl bg-sky-500 hover:bg-sky-600 font-medium text-sm text-white flex items-center justify-center"
+              >
+                카카오맵
+              </a>
+              <a
+                href={naverMapSearchUrl(h.name, h.address)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 min-h-[44px] rounded-xl border border-gray-600 hover:bg-gray-800 font-medium text-sm text-white flex items-center justify-center"
+              >
+                네이버 지도
+              </a>
+            </div>
           )}
           <button
             type="button"
-            onClick={() => {
-              onOpenReviews(h.id)
-            }}
-            className="flex-1 min-h-[44px] rounded-xl bg-gray-700 hover:bg-gray-600 font-medium text-sm text-white"
+            onClick={() => onOpenReviews(h.id)}
+            className="w-full min-h-[44px] rounded-xl bg-gray-700 hover:bg-gray-600 font-medium text-sm text-white"
           >
             리뷰 보기
           </button>
