@@ -80,16 +80,29 @@ export function HospitalReviewModal({
   const totalPages = reviewsPage?.totalPages ?? 0
   const content = reviewsPage?.content ?? []
 
+  const handleOverlayKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ' || e.key === 'Escape') {
+      e.preventDefault()
+      onClose()
+    }
+  }
+
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-      onClick={onClose}
       role="dialog"
       aria-modal="true"
       aria-label="병원 리뷰"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
     >
+      <button
+        type="button"
+        className="absolute inset-0 bg-black/50"
+        onClick={onClose}
+        onKeyDown={handleOverlayKeyDown}
+        aria-label="모달 닫기"
+      />
       <div
-        className="flex max-h-[85vh] w-full max-w-md flex-col rounded-2xl bg-white shadow-xl"
+        className="relative flex max-h-[85vh] w-full max-w-md flex-col rounded-2xl bg-white shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
