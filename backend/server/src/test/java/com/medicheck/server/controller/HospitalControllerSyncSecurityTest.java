@@ -17,6 +17,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
@@ -68,6 +69,9 @@ class HospitalControllerSyncSecurityTest {
         mockMvc.perform(post("/api/hospitals/sync/evaluations/one").param("ykiho", "some-ykiho"))
                 .andExpect(status().isForbidden());
 
+        mockMvc.perform(post("/api/hospitals/sync/evaluations/region").param("addressKeyword", "구미"))
+                .andExpect(status().isForbidden());
+
         then(hiraSyncService).shouldHaveNoInteractions();
         then(hospitalEvaluationSyncService).shouldHaveNoInteractions();
     }
@@ -79,8 +83,9 @@ class HospitalControllerSyncSecurityTest {
                 .willReturn(SyncResult.builder().keyConfigured(true).fetchedCount(0).saved(0).build());
         given(hiraSyncService.syncAllRegions(anyInt()))
                 .willReturn(SyncResult.builder().keyConfigured(true).fetchedCount(0).saved(0).build());
-        given(hospitalEvaluationSyncService.syncAll()).willReturn(0);
+        given(hospitalEvaluationSyncService.syncAll(any())).willReturn(0);
         given(hospitalEvaluationSyncService.syncOne(anyString())).willReturn(true);
+        given(hospitalEvaluationSyncService.syncByAddressKeyword(anyString(), any())).willReturn(0);
 
         mockMvc.perform(post("/api/hospitals/sync")
                         .header("X-Admin-Key", "test-admin-key")
@@ -102,10 +107,16 @@ class HospitalControllerSyncSecurityTest {
                         .param("ykiho", "some-ykiho"))
                 .andExpect(status().isOk());
 
+        mockMvc.perform(post("/api/hospitals/sync/evaluations/region")
+                        .header("X-Admin-Key", "test-admin-key")
+                        .param("addressKeyword", "구미"))
+                .andExpect(status().isOk());
+
         then(hiraSyncService).should().syncFromHira(1, 10);
         then(hiraSyncService).should().syncAllRegions(10);
-        then(hospitalEvaluationSyncService).should().syncAll();
+        then(hospitalEvaluationSyncService).should().syncAll(any());
         then(hospitalEvaluationSyncService).should().syncOne("some-ykiho");
+        then(hospitalEvaluationSyncService).should().syncByAddressKeyword("구미", null);
     }
 }
 

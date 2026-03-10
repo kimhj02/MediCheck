@@ -59,6 +59,18 @@ public final class HospitalSpecification {
     }
 
     /**
+     * 주소에 특정 문자열이 포함된 병원만 조회 (지역별 필터, 예: "구미").
+     */
+    public static Specification<Hospital> addressContains(String keyword) {
+        if (!StringUtils.hasText(keyword)) {
+            return (root, query, cb) -> cb.conjunction();
+        }
+        String pattern = "%" + escapeForLike(keyword.trim()) + "%";
+        return (root, query, cb) ->
+                cb.like(cb.lower(root.get("address")), pattern.toLowerCase(), LIKE_ESCAPE);
+    }
+
+    /**
      * keyword + department 조건을 하나의 Specification으로 합칩니다.
      */
     public static Specification<Hospital> withFilters(String keyword, String department) {

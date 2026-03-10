@@ -126,8 +126,8 @@ public class HospitalController {
 
     /**
      * 지정 좌표 반경 내 병원을 HIRA에서 조회해 DB에 동기화합니다.
-     * 구미 옥계동: lat=36.127, lng=128.375, radiusMeters=50000
-     * POST /api/hospitals/sync/location?lat=36.127&lng=128.375&radiusMeters=50000
+     * 구미시 전체: lat=36.12, lng=128.34, radiusMeters=20000 (약 20km)
+     * POST /api/hospitals/sync/location?lat=36.12&lng=128.34&radiusMeters=20000
      */
     @PostMapping("/sync/location")
     public ResponseEntity<?> syncByLocation(
@@ -208,11 +208,14 @@ public class HospitalController {
      * HIRA 병원평가정보(getHospAsmInfo1)를 DB에 동기화합니다.
      * 우리 DB에 등록된 병원(ykiho 매칭)만 저장/갱신합니다. X-Admin-Key 헤더 필요.
      * POST /api/hospitals/sync/evaluations
+     * POST /api/hospitals/sync/evaluations?maxSynced=50  → 최대 50건만 동기화 (일부만 확인 시)
      */
     @PostMapping("/sync/evaluations")
-    public ResponseEntity<?> syncEvaluations() {
+    public ResponseEntity<?> syncEvaluations(
+            @RequestParam(required = false) Integer maxSynced
+    ) {
         try {
-            int count = hospitalEvaluationSyncService.syncAll();
+            int count = hospitalEvaluationSyncService.syncAll(maxSynced);
             return ResponseEntity.ok(Map.of(
                     "synced", count,
                     "message", "병원평가정보 동기화 완료"
@@ -222,6 +225,41 @@ public class HospitalController {
             log.error("병원평가정보 동기화 실패 errorId={}", errorId, e);
             return ResponseEntity.status(500).body(Map.of(
                     "error", "sync-evaluations failed",
+                    "message", "internal server error",
+                    "errorId", errorId
+            ));
+        }
+    }
+
+    /**
+     * 주소에 특정 키워드가 포함된 병원만 평가정보 동기화 (예: 구미 지역만).
+     * X-Admin-Key 헤더 필요.
+     * POST /api/hospitals/sync/evaluations/region?addressKeyword=구미
+     * POST /api/hospitals/sync/evaluations/region?addressKeyword=구미&maxSynced=100
+     */
+    @PostMapping("/sync/evaluations/region")
+    public ResponseEntity<?> syncEvaluationsByRegion(
+            @RequestParam("addressKeyword") String addressKeyword,
+            @RequestParam(required = false) Integer maxSynced
+    ) {
+        if (addressKeyword == null || addressKeyword.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "error", "invalid_addressKeyword",
+                    "message", "addressKeyword는 필수입니다 (예: 구미)."
+            ));
+        }
+        try {
+            int count = hospitalEvaluationSyncService.syncByAddressKeyword(addressKeyword.trim(), maxSynced);
+            return ResponseEntity.ok(Map.of(
+                    "synced", count,
+                    "addressKeyword", addressKeyword.trim(),
+                    "message", "해당 지역 병원평가정보 동기화 완료"
+            ));
+        } catch (Exception e) {
+            String errorId = java.util.UUID.randomUUID().toString();
+            log.error("병원평가정보 지역 동기화 실패 errorId={}", errorId, e);
+            return ResponseEntity.status(500).body(Map.of(
+                    "error", "sync-evaluations-region failed",
                     "message", "internal server error",
                     "errorId", errorId
             ));

@@ -6,8 +6,10 @@ import com.medicheck.server.domain.entity.Hospital;
 import com.medicheck.server.domain.entity.HospitalEvaluation;
 import com.medicheck.server.domain.repository.HospitalEvaluationRepository;
 import com.medicheck.server.domain.repository.HospitalRepository;
+import com.medicheck.server.domain.repository.HospitalSpecification;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -33,21 +35,26 @@ public class HospitalEvaluationSyncService {
     /**
      * 전체 평가 데이터를 페이지 단위로 조회해, 우리 DB에 있는 병원(ykiho 매칭)만 저장/갱신합니다.
      *
+     * @param maxSynced 최대 동기화 건수 (null 또는 0 이하면 제한 없음)
      * @return 저장 또는 갱신된 평가 건수
      */
     @Transactional
-    public int syncAll() {
+    public int syncAll(Integer maxSynced) {
         int totalSaved = 0;
         int pageNo = 1;
+        boolean hasLimit = maxSynced != null && maxSynced > 0;
 
         while (pageNo <= MAX_PAGE) {
+            if (hasLimit && totalSaved >= maxSynced) {
+                break;
+            }
             List<HiraAsmItem> items = evaluationClient.getHospAsmInfo(pageNo, DEFAULT_PAGE_SIZE, null);
             if (items == null || items.isEmpty()) {
                 break;
             }
-            int saved = saveOrUpdateEvaluations(items);
+            int saved = saveOrUpdateEvaluations(items, hasLimit ? maxSynced - totalSaved : null);
             totalSaved += saved;
-            if (items.size() < DEFAULT_PAGE_SIZE) {
+            if (items.size() < DEFAULT_PAGE_SIZE || (hasLimit && totalSaved >= maxSynced)) {
                 break;
             }
             pageNo++;
@@ -73,15 +80,48 @@ public class HospitalEvaluationSyncService {
         if (items == null || items.isEmpty()) {
             return false;
         }
-        return saveOrUpdateEvaluations(items) > 0;
+        return saveOrUpdateEvaluations(items, null) > 0;
+    }
+
+    /**
+     * 주소에 특정 키워드(예: "구미")가 포함된 병원만 골라 평가정보를 1건씩 동기화합니다.
+     *
+     * @param addressKeyword 주소 포함 문자열 (예: "구미")
+     * @param maxSynced      최대 동기화 건수 (null 이하면 제한 없음)
+     * @return 저장/갱신된 평가 건수
+     */
+    @Transactional
+    public int syncByAddressKeyword(String addressKeyword, Integer maxSynced) {
+        if (addressKeyword == null || addressKeyword.isBlank()) {
+            return 0;
+        }
+        Specification<Hospital> spec = HospitalSpecification.addressContains(addressKeyword);
+        List<Hospital> hospitals = hospitalRepository.findAll(spec);
+        int count = 0;
+        for (Hospital h : hospitals) {
+            if (maxSynced != null && maxSynced > 0 && count >= maxSynced) {
+                break;
+            }
+            String ykiho = trim(h.getPublicCode(), 500);
+            if (ykiho == null || ykiho.isBlank()) continue;
+            if (syncOne(ykiho)) {
+                count++;
+            }
+        }
+        log.info("병원평가정보 지역 동기화 완료: addressKeyword={}, {} 건 저장/갱신", addressKeyword, count);
+        return count;
     }
 
     /**
      * API 응답 item 목록에 대해 Hospital(ykiho=publicCode)이 있는 것만 저장 또는 갱신.
+     * @param maxCount 최대 처리 건수 (null 이면 전부)
      */
-    private int saveOrUpdateEvaluations(List<HiraAsmItem> items) {
+    private int saveOrUpdateEvaluations(List<HiraAsmItem> items, Integer maxCount) {
         int count = 0;
         for (HiraAsmItem item : items) {
+            if (maxCount != null && count >= maxCount) {
+                break;
+            }
             String ykiho = trim(item.getYkiho(), 500);
             if (ykiho == null || ykiho.isBlank()) {
                 continue;
