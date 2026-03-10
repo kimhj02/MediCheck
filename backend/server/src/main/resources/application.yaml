@@ -63,3 +63,7 @@ hira:
     # 공공데이터포털 개발계정 상세보기 기준: v2, getHospBasisList
     base-url: https://apis.data.go.kr/B551182/hospInfoServicev2
     service-key: ${HIRA_SERVICE_KEY:}
+  # 병원평가정보서비스 (getHospAsmInfo1). 로컬: application-local.yaml 에 service-key 추가 가능
+  eval:
+    base-url: https://apis.data.go.kr/B551182/hospAsmInfoService1
+    service-key: ${HIRA_SERVICE_KEY:}

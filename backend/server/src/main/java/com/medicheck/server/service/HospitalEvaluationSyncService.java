@@ -1,0 +1,153 @@
+package com.medicheck.server.service;
+
+import com.medicheck.server.client.hira.HiraEvaluationClient;
+import com.medicheck.server.client.hira.dto.HiraAsmItem;
+import com.medicheck.server.domain.entity.Hospital;
+import com.medicheck.server.domain.entity.HospitalEvaluation;
+import com.medicheck.server.domain.repository.HospitalEvaluationRepository;
+import com.medicheck.server.domain.repository.HospitalRepository;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+import java.util.Optional;
+
+/**
+ * HIRA 병원평가정보(getHospAsmInfo1) API 결과를 DB에 동기화합니다.
+ * ykiho(요양기호)로 Hospital과 매칭하여, 등록된 병원에 대해서만 HospitalEvaluation을 저장/갱신합니다.
+ */
+@Service
+@RequiredArgsConstructor
+@Slf4j
+public class HospitalEvaluationSyncService {
+
+    private static final int DEFAULT_PAGE_SIZE = 100;
+    private static final int MAX_PAGE = 10_000;
+
+    private final HiraEvaluationClient evaluationClient;
+    private final HospitalRepository hospitalRepository;
+    private final HospitalEvaluationRepository evaluationRepository;
+
+    /**
+     * 전체 평가 데이터를 페이지 단위로 조회해, 우리 DB에 있는 병원(ykiho 매칭)만 저장/갱신합니다.
+     *
+     * @return 저장 또는 갱신된 평가 건수
+     */
+    @Transactional
+    public int syncAll() {
+        int totalSaved = 0;
+        int pageNo = 1;
+
+        while (pageNo <= MAX_PAGE) {
+            List<HiraAsmItem> items = evaluationClient.getHospAsmInfo(pageNo, DEFAULT_PAGE_SIZE, null);
+            if (items == null || items.isEmpty()) {
+                break;
+            }
+            int saved = saveOrUpdateEvaluations(items);
+            totalSaved += saved;
+            if (items.size() < DEFAULT_PAGE_SIZE) {
+                break;
+            }
+            pageNo++;
+        }
+
+        log.info("병원평가정보 동기화 완료: 총 {} 건 저장/갱신", totalSaved);
+        return totalSaved;
+    }
+
+    /**
+     * 특정 요양기호(ykiho) 한 건만 API에서 조회해 저장/갱신합니다.
+     *
+     * @param ykiho 암호화된 요양기호 (publicCode와 동일)
+     * @return 저장/갱신 시 true, 해당 병원이 없거나 API 결과 없으면 false
+     */
+    @Transactional
+    public boolean syncOne(String ykiho) {
+        String normalized = trim(ykiho, 500);
+        if (normalized == null || normalized.isBlank()) {
+            return false;
+        }
+        List<HiraAsmItem> items = evaluationClient.getHospAsmInfo(1, 1, normalized);
+        if (items == null || items.isEmpty()) {
+            return false;
+        }
+        return saveOrUpdateEvaluations(items) > 0;
+    }
+
+    /**
+     * API 응답 item 목록에 대해 Hospital(ykiho=publicCode)이 있는 것만 저장 또는 갱신.
+     */
+    private int saveOrUpdateEvaluations(List<HiraAsmItem> items) {
+        int count = 0;
+        for (HiraAsmItem item : items) {
+            String ykiho = trim(item.getYkiho(), 500);
+            if (ykiho == null || ykiho.isBlank()) {
+                continue;
+            }
+            Optional<Hospital> hospitalOpt = hospitalRepository.findByPublicCode(ykiho);
+            if (hospitalOpt.isEmpty()) {
+                continue;
+            }
+            Hospital hospital = hospitalOpt.get();
+            Optional<HospitalEvaluation> existingOpt = evaluationRepository.findByHospital_Id(hospital.getId());
+            if (existingOpt.isPresent()) {
+                HospitalEvaluation ev = existingOpt.get();
+                ev.updateFromApi(
+                        item.getYadmNm(), item.getClCd(), item.getClCdNm(), item.getAddr(),
+                        item.getAsmGrd01(), item.getAsmGrd03(), item.getAsmGrd04(), item.getAsmGrd05(), item.getAsmGrd06(),
+                        item.getAsmGrd07(), item.getAsmGrd08(), item.getAsmGrd09(), item.getAsmGrd10(), item.getAsmGrd12(),
+                        item.getAsmGrd13(), item.getAsmGrd14(), item.getAsmGrd15(), item.getAsmGrd16(), item.getAsmGrd17(),
+                        item.getAsmGrd18(), item.getAsmGrd19(), item.getAsmGrd20(), item.getAsmGrd21(), item.getAsmGrd22(),
+                        item.getAsmGrd23(), item.getAsmGrd24()
+                );
+                evaluationRepository.save(ev);
+            } else {
+                HospitalEvaluation ev = toEvaluation(hospital, item);
+                evaluationRepository.save(ev);
+            }
+            count++;
+        }
+        return count;
+    }
+
+    private static HospitalEvaluation toEvaluation(Hospital hospital, HiraAsmItem item) {
+        return HospitalEvaluation.builder()
+                .hospital(hospital)
+                .ykiho(trim(item.getYkiho(), 500))
+                .yadmNm(trim(item.getYadmNm(), 200))
+                .clCd(trim(item.getClCd(), 10))
+                .clCdNm(trim(item.getClCdNm(), 50))
+                .addr(trim(item.getAddr(), 500))
+                .asmGrd01(item.getAsmGrd01())
+                .asmGrd03(item.getAsmGrd03())
+                .asmGrd04(item.getAsmGrd04())
+                .asmGrd05(item.getAsmGrd05())
+                .asmGrd06(item.getAsmGrd06())
+                .asmGrd07(item.getAsmGrd07())
+                .asmGrd08(item.getAsmGrd08())
+                .asmGrd09(item.getAsmGrd09())
+                .asmGrd10(item.getAsmGrd10())
+                .asmGrd12(item.getAsmGrd12())
+                .asmGrd13(item.getAsmGrd13())
+                .asmGrd14(item.getAsmGrd14())
+                .asmGrd15(item.getAsmGrd15())
+                .asmGrd16(item.getAsmGrd16())
+                .asmGrd17(item.getAsmGrd17())
+                .asmGrd18(item.getAsmGrd18())
+                .asmGrd19(item.getAsmGrd19())
+                .asmGrd20(item.getAsmGrd20())
+                .asmGrd21(item.getAsmGrd21())
+                .asmGrd22(item.getAsmGrd22())
+                .asmGrd23(item.getAsmGrd23())
+                .asmGrd24(item.getAsmGrd24())
+                .build();
+    }
+
+    private static String trim(String value, int maxLen) {
+        if (value == null) return null;
+        String s = value.trim();
+        return s.length() > maxLen ? s.substring(0, maxLen) : s;
+    }
+}
