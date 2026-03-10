@@ -36,7 +36,9 @@ public class SecurityConfig {
                                 "/api/hospitals/sync",
                                 "/api/hospitals/sync/all",
                                 "/api/hospitals/sync/region",
-                                "/api/hospitals/sync/location")
+                                "/api/hospitals/sync/location",
+                                "/api/hospitals/sync/evaluations",
+                                "/api/hospitals/sync/evaluations/one")
                         .hasRole("ADMIN")
                         // 내 리뷰 조회는 인증 필요 (permitAll보다 먼저 매칭)
                         .requestMatchers(HttpMethod.GET, "/api/hospitals/*/reviews/me")

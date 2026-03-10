@@ -6,6 +6,7 @@ import com.medicheck.server.security.PerIPDirectionsRateLimitFilter;
 import com.medicheck.server.security.SecurityConfig;
 import com.medicheck.server.security.XAdminKeyAuthFilter;
 import com.medicheck.server.service.HiraSyncService;
+import com.medicheck.server.service.HospitalEvaluationSyncService;
 import com.medicheck.server.service.HospitalService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -17,6 +18,7 @@ import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -45,6 +47,9 @@ class HospitalControllerSyncSecurityTest {
     @MockBean
     private HiraSyncService hiraSyncService;
 
+    @MockBean
+    private HospitalEvaluationSyncService hospitalEvaluationSyncService;
+
     @Test
     @DisplayName("동기화 엔드포인트는 관리자 키 없이 접근 시 403을 반환한다")
     void syncEndpoints_forbiddenWithoutAdminKey() throws Exception {
@@ -57,7 +62,14 @@ class HospitalControllerSyncSecurityTest {
                         .param("numOfRows", "10"))
                 .andExpect(status().isForbidden());
 
+        mockMvc.perform(post("/api/hospitals/sync/evaluations"))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(post("/api/hospitals/sync/evaluations/one").param("ykiho", "some-ykiho"))
+                .andExpect(status().isForbidden());
+
         then(hiraSyncService).shouldHaveNoInteractions();
+        then(hospitalEvaluationSyncService).shouldHaveNoInteractions();
     }
 
     @Test
@@ -67,6 +79,8 @@ class HospitalControllerSyncSecurityTest {
                 .willReturn(SyncResult.builder().keyConfigured(true).fetchedCount(0).saved(0).build());
         given(hiraSyncService.syncAllRegions(anyInt()))
                 .willReturn(SyncResult.builder().keyConfigured(true).fetchedCount(0).saved(0).build());
+        given(hospitalEvaluationSyncService.syncAll()).willReturn(0);
+        given(hospitalEvaluationSyncService.syncOne(anyString())).willReturn(true);
 
         mockMvc.perform(post("/api/hospitals/sync")
                         .header("X-Admin-Key", "test-admin-key")
@@ -79,8 +93,19 @@ class HospitalControllerSyncSecurityTest {
                         .param("numOfRows", "10"))
                 .andExpect(status().isOk());
 
+        mockMvc.perform(post("/api/hospitals/sync/evaluations")
+                        .header("X-Admin-Key", "test-admin-key"))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/hospitals/sync/evaluations/one")
+                        .header("X-Admin-Key", "test-admin-key")
+                        .param("ykiho", "some-ykiho"))
+                .andExpect(status().isOk());
+
         then(hiraSyncService).should().syncFromHira(1, 10);
         then(hiraSyncService).should().syncAllRegions(10);
+        then(hospitalEvaluationSyncService).should().syncAll();
+        then(hospitalEvaluationSyncService).should().syncOne("some-ykiho");
     }
 }
 

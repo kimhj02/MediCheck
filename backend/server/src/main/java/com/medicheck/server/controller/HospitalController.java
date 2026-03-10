@@ -5,6 +5,7 @@ import com.medicheck.server.dto.HospitalResponse;
 import com.medicheck.server.dto.NearbyHospitalResponse;
 import com.medicheck.server.dto.SyncResult;
 import com.medicheck.server.service.HiraSyncService;
+import com.medicheck.server.service.HospitalEvaluationSyncService;
 import com.medicheck.server.service.HospitalService;
 import com.medicheck.server.service.NearbyQueryContextHolder;
 import com.medicheck.server.service.NearbyQueryMetadata;
@@ -40,6 +41,7 @@ public class HospitalController {
 
     private final HospitalService hospitalService;
     private final HiraSyncService hiraSyncService;
+    private final HospitalEvaluationSyncService hospitalEvaluationSyncService;
 
     /**
      * 병원 목록 조회 (검색/필터/정렬/페이지네이션).
@@ -196,6 +198,59 @@ public class HospitalController {
             log.error("HIRA 전국 동기화 실패 errorId={}", errorId, e);
             return ResponseEntity.status(500).body(Map.of(
                     "error", "sync-all failed",
+                    "message", "internal server error",
+                    "errorId", errorId
+            ));
+        }
+    }
+
+    /**
+     * HIRA 병원평가정보(getHospAsmInfo1)를 DB에 동기화합니다.
+     * 우리 DB에 등록된 병원(ykiho 매칭)만 저장/갱신합니다. X-Admin-Key 헤더 필요.
+     * POST /api/hospitals/sync/evaluations
+     */
+    @PostMapping("/sync/evaluations")
+    public ResponseEntity<?> syncEvaluations() {
+        try {
+            int count = hospitalEvaluationSyncService.syncAll();
+            return ResponseEntity.ok(Map.of(
+                    "synced", count,
+                    "message", "병원평가정보 동기화 완료"
+            ));
+        } catch (Exception e) {
+            String errorId = java.util.UUID.randomUUID().toString();
+            log.error("병원평가정보 동기화 실패 errorId={}", errorId, e);
+            return ResponseEntity.status(500).body(Map.of(
+                    "error", "sync-evaluations failed",
+                    "message", "internal server error",
+                    "errorId", errorId
+            ));
+        }
+    }
+
+    /**
+     * 특정 요양기호(ykiho)의 병원평가정보 1건만 동기화합니다. X-Admin-Key 헤더 필요.
+     * POST /api/hospitals/sync/evaluations/one?ykiho=암호화된요양기호
+     */
+    @PostMapping("/sync/evaluations/one")
+    public ResponseEntity<?> syncEvaluationOne(@RequestParam("ykiho") String ykiho) {
+        if (ykiho == null || ykiho.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "error", "invalid_ykiho",
+                    "message", "ykiho는 필수입니다."
+            ));
+        }
+        try {
+            boolean synced = hospitalEvaluationSyncService.syncOne(ykiho);
+            if (synced) {
+                return ResponseEntity.ok(Map.of("synced", true, "message", "해당 병원 평가정보 동기화 완료"));
+            }
+            return ResponseEntity.ok(Map.of("synced", false, "message", "해당 병원이 DB에 없거나 API 결과가 없습니다."));
+        } catch (Exception e) {
+            String errorId = java.util.UUID.randomUUID().toString();
+            log.error("병원평가정보 1건 동기화 실패 errorId={}", errorId, e);
+            return ResponseEntity.status(500).body(Map.of(
+                    "error", "sync-evaluations-one failed",
                     "message", "internal server error",
                     "errorId", errorId
             ));
