@@ -134,8 +134,12 @@ public class HospitalEvaluationSyncService {
             Optional<HospitalEvaluation> existingOpt = evaluationRepository.findByHospital_Id(hospital.getId());
             if (existingOpt.isPresent()) {
                 HospitalEvaluation ev = existingOpt.get();
+                // 신규 생성(toEvaluation)과 동일하게 길이 제한을 맞추기 위해 trim 적용
                 ev.updateFromApi(
-                        item.getYadmNm(), item.getClCd(), item.getClCdNm(), item.getAddr(),
+                        trim(item.getYadmNm(), 200),
+                        trim(item.getClCd(), 10),
+                        trim(item.getClCdNm(), 50),
+                        trim(item.getAddr(), 500),
                         item.getAsmGrd01(), item.getAsmGrd03(), item.getAsmGrd04(), item.getAsmGrd05(), item.getAsmGrd06(),
                         item.getAsmGrd07(), item.getAsmGrd08(), item.getAsmGrd09(), item.getAsmGrd10(), item.getAsmGrd12(),
                         item.getAsmGrd13(), item.getAsmGrd14(), item.getAsmGrd15(), item.getAsmGrd16(), item.getAsmGrd17(),
