@@ -12,6 +12,7 @@ import java.net.URL;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -24,7 +25,9 @@ class ApiExplorerTest {
     @Disabled("실제 HIRA Open API를 호출하는 탐색용 통합 테스트이므로 기본 CI에서는 실행하지 않습니다.")
     @Timeout(15)
     void getClinicTop5List1() throws IOException {
-        String serviceKey = "877b01235fb491f2c388d2d63a42888299c1537f21a8d518fbe80c551141ff24";
+        String serviceKey = System.getenv("HIRA_SAMPLE_SERVICE_KEY");
+        assertFalse(serviceKey == null || serviceKey.isBlank(),
+                "환경변수 HIRA_SAMPLE_SERVICE_KEY 가 설정되지 않았습니다. 실제 키를 로컬 환경변수나 CI 시크릿으로 주입해 주세요.");
         String ykiho = "JDQ4MTg4MSM1MSMkMiMkOCMkMDAkMzgxOTYxIzUxIyQxIyQxIyQxMyQzNjE4MzIjNzEjJDEjJDgjJDgz";
 
         StringBuilder urlBuilder = new StringBuilder("https://apis.data.go.kr/B551182/hospDiagInfoService1/getClinicTop5List1");
