@@ -3,7 +3,6 @@ package com.medicheck.server.client.hira;
 import com.medicheck.server.client.hira.dto.HiraAsmApiResponse;
 import com.medicheck.server.client.hira.dto.HiraAsmItem;
 import com.medicheck.server.config.HiraEvalApiProperties;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.ResponseEntity;
@@ -19,7 +18,6 @@ import java.util.List;
  * getHospAsmInfo1(병원평가상세등급조회) 호출.
  */
 @Component
-@RequiredArgsConstructor
 @Slf4j
 public class HiraEvaluationClient {
 
@@ -27,8 +25,13 @@ public class HiraEvaluationClient {
     private static final String RESPONSE_TYPE_JSON = "json";
 
     private final HiraEvalApiProperties properties;
-    @Qualifier("hiraRestTemplate")
     private final RestTemplate restTemplate;
+
+    public HiraEvaluationClient(HiraEvalApiProperties properties,
+                                @Qualifier("hiraRestTemplate") RestTemplate restTemplate) {
+        this.properties = properties;
+        this.restTemplate = restTemplate;
+    }
 
     /**
      * 병원평가상세등급 조회 (페이징). ykiho 생략 시 전체 조회.

@@ -3,7 +3,6 @@ package com.medicheck.server.client.hira;
 import com.medicheck.server.client.hira.dto.HiraApiResponse;
 import com.medicheck.server.client.hira.dto.HiraHospItem;
 import com.medicheck.server.config.HiraApiProperties;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.ResponseEntity;
@@ -20,7 +19,6 @@ import java.util.List;
  * getHospBasisList1(병원기본목록) 호출.
  */
 @Component
-@RequiredArgsConstructor
 @Slf4j
 public class HiraHospitalClient {
 
@@ -29,8 +27,13 @@ public class HiraHospitalClient {
     private static final String RESPONSE_TYPE_JSON = "json";
 
     private final HiraApiProperties properties;
-    @Qualifier("hiraRestTemplate")
     private final RestTemplate restTemplate;
+
+    public HiraHospitalClient(HiraApiProperties properties,
+                              @Qualifier("hiraRestTemplate") RestTemplate restTemplate) {
+        this.properties = properties;
+        this.restTemplate = restTemplate;
+    }
 
     /**
      * 병원기본목록 조회 (페이징).
