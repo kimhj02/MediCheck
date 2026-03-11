@@ -14,7 +14,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.Optional;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * HIRA 병원평가정보(getHospAsmInfo1) API 결과를 DB에 동기화합니다.
@@ -118,6 +119,39 @@ public class HospitalEvaluationSyncService {
      */
     private int saveOrUpdateEvaluations(List<HiraAsmItem> items, Integer maxCount) {
         int count = 0;
+        if (items == null || items.isEmpty()) {
+            return 0;
+        }
+
+        // 1) 이번 페이지의 ykiho(요양기호)들을 한 번에 수집
+        List<String> ykihoList = items.stream()
+                .map(i -> trim(i.getYkiho(), 500))
+                .filter(y -> y != null && !y.isBlank())
+                .distinct()
+                .toList();
+        if (ykihoList.isEmpty()) {
+            return 0;
+        }
+
+        // 2) ykiho(publicCode) 목록으로 병원들을 한 번에 조회
+        List<Hospital> hospitals = hospitalRepository.findAllByPublicCodeIn(ykihoList);
+        Map<String, Hospital> ykihoToHospital = hospitals.stream()
+                .filter(h -> h.getPublicCode() != null && !h.getPublicCode().isBlank())
+                .collect(Collectors.toMap(Hospital::getPublicCode, h -> h));
+
+        if (ykihoToHospital.isEmpty()) {
+            return 0;
+        }
+
+        // 3) 해당 병원들의 평가를 한 번에 조회
+        List<Long> hospitalIds = hospitals.stream()
+                .map(Hospital::getId)
+                .toList();
+        List<HospitalEvaluation> existingEvaluations = evaluationRepository.findByHospital_IdIn(hospitalIds);
+        Map<Long, HospitalEvaluation> idToEvaluation = existingEvaluations.stream()
+                .collect(Collectors.toMap(ev -> ev.getHospital().getId(), ev -> ev));
+
+        // 4) 각 item 에 대해 맵 조회로 저장/갱신 처리
         for (HiraAsmItem item : items) {
             if (maxCount != null && count >= maxCount) {
                 break;
@@ -126,16 +160,14 @@ public class HospitalEvaluationSyncService {
             if (ykiho == null || ykiho.isBlank()) {
                 continue;
             }
-            Optional<Hospital> hospitalOpt = hospitalRepository.findByPublicCode(ykiho);
-            if (hospitalOpt.isEmpty()) {
+            Hospital hospital = ykihoToHospital.get(ykiho);
+            if (hospital == null) {
                 continue;
             }
-            Hospital hospital = hospitalOpt.get();
-            Optional<HospitalEvaluation> existingOpt = evaluationRepository.findByHospital_Id(hospital.getId());
-            if (existingOpt.isPresent()) {
-                HospitalEvaluation ev = existingOpt.get();
+            HospitalEvaluation existing = idToEvaluation.get(hospital.getId());
+            if (existing != null) {
                 // 신규 생성(toEvaluation)과 동일하게 길이 제한을 맞추기 위해 trim 적용
-                ev.updateFromApi(
+                existing.updateFromApi(
                         trim(item.getYadmNm(), 200),
                         trim(item.getClCd(), 10),
                         trim(item.getClCdNm(), 50),
@@ -146,10 +178,11 @@ public class HospitalEvaluationSyncService {
                         item.getAsmGrd18(), item.getAsmGrd19(), item.getAsmGrd20(), item.getAsmGrd21(), item.getAsmGrd22(),
                         item.getAsmGrd23(), item.getAsmGrd24()
                 );
-                evaluationRepository.save(ev);
+                evaluationRepository.save(existing);
             } else {
                 HospitalEvaluation ev = toEvaluation(hospital, item);
                 evaluationRepository.save(ev);
+                idToEvaluation.put(hospital.getId(), ev);
             }
             count++;
         }
