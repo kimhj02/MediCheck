@@ -18,10 +18,11 @@ spring:
     console:
       enabled: false
 
-# JWT (회원 로그인). 운영 환경에서는 반드시 환경변수 JWT_SECRET 설정
+# JWT (회원 로그인). 운영/공용 환경에서는 반드시 환경변수 JWT_SECRET 설정
 app:
   jwt:
-    secret: ${JWT_SECRET:local-dev-secret-change-in-production}
+    # 기본값(fallback) 없이 환경변수나 프로필별 설정에서만 주입
+    secret: ${JWT_SECRET}
     expiration-ms: 86400000  # 24h
 
 # 동기화 API 호출 시 필요한 관리자 키 (헤더 X-Admin-Key 와 일치해야 함).
