@@ -5,13 +5,13 @@ import com.medicheck.server.client.hira.dto.HiraHospItem;
 import com.medicheck.server.config.HiraApiProperties;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.net.URI;
-import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.List;
 
@@ -29,7 +29,8 @@ public class HiraHospitalClient {
     private static final String RESPONSE_TYPE_JSON = "json";
 
     private final HiraApiProperties properties;
-    private final RestTemplate restTemplate = new RestTemplate();
+    @Qualifier("hiraRestTemplate")
+    private final RestTemplate restTemplate;
 
     /**
      * 병원기본목록 조회 (페이징).

@@ -5,6 +5,7 @@ import com.medicheck.server.client.hira.dto.HiraAsmItem;
 import com.medicheck.server.config.HiraEvalApiProperties;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
@@ -27,7 +28,8 @@ public class HiraEvaluationClient {
     private static final String RESPONSE_TYPE_JSON = "json";
 
     private final HiraEvalApiProperties properties;
-    private final RestTemplate restTemplate = new RestTemplate();
+    @Qualifier("hiraRestTemplate")
+    private final RestTemplate restTemplate;
 
     /**
      * 병원평가상세등급 조회 (페이징). ykiho 생략 시 전체 조회.
