@@ -12,7 +12,6 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.net.URI;
-import java.util.Collections;
 import java.util.List;
 
 /**
@@ -37,12 +36,13 @@ public class HiraEvaluationClient {
      * @param pageNo    페이지 번호 (1부터)
      * @param numOfRows 한 페이지 결과 수
      * @param ykiho     암호화된 요양기호 (null 이면 미지정)
-     * @return 평가 항목별 등급 목록 (인증키 미설정 또는 오류 시 빈 리스트)
+     * @return 평가 항목별 등급 목록
+     * @throws HiraApiException 인증키 누락, 비정상 응답, 통신 오류 등 HIRA API 에러 발생 시
      */
     public List<HiraAsmItem> getHospAsmInfo(int pageNo, int numOfRows, String ykiho) {
         if (properties.getServiceKey() == null || properties.getServiceKey().isBlank()) {
             log.warn("HIRA 평가 API 인증키가 설정되지 않았습니다. hira.eval.service-key 또는 HIRA_SERVICE_KEY 를 설정하세요.");
-            return Collections.emptyList();
+            throw new HiraApiException("HIRA 평가 API 인증키가 설정되지 않았습니다. hira.eval.service-key 또는 HIRA_SERVICE_KEY 를 설정하세요.");
         }
 
         try {
@@ -62,20 +62,20 @@ public class HiraEvaluationClient {
 
             if (body == null) {
                 log.warn("HIRA 평가 API 응답 body가 null입니다.");
-                return Collections.emptyList();
+                throw new HiraApiException("HIRA 평가 API 응답 body가 null입니다.");
             }
             if (body.getResponse() != null && body.getResponse().getHeader() != null) {
                 String code = body.getResponse().getHeader().getResultCode();
                 String msg = body.getResponse().getHeader().getResultMsg();
                 if (!"00".equals(code)) {
                     log.warn("HIRA 평가 API 오류: resultCode={}, resultMsg={}", code, msg);
-                    return Collections.emptyList();
+                    throw new HiraApiException("HIRA 평가 API 오류: resultCode=" + code + ", resultMsg=" + msg);
                 }
             }
             return body.getItemList();
         } catch (Exception e) {
             log.error("HIRA 평가 API 호출 실패", e);
-            return Collections.emptyList();
+            throw new HiraApiException("HIRA 평가 API 호출 실패", e);
         }
     }
 }
