@@ -1,8 +1,11 @@
 package com.medicheck.server.service;
 
 import com.medicheck.server.domain.entity.Hospital;
+import com.medicheck.server.domain.entity.HospitalEvaluation;
+import com.medicheck.server.domain.repository.HospitalEvaluationRepository;
 import com.medicheck.server.domain.repository.HospitalRepository;
 import com.medicheck.server.domain.repository.HospitalSpecification;
+import com.medicheck.server.dto.HospitalEvaluationSummary;
 import com.medicheck.server.dto.HospitalResponse;
 import com.medicheck.server.dto.NearbyHospitalResponse;
 import com.medicheck.server.dto.ReviewSummary;
@@ -29,6 +32,7 @@ public class HospitalService {
 
     private final HospitalRepository hospitalRepository;
     private final HospitalReviewService reviewService;
+    private final HospitalEvaluationRepository hospitalEvaluationRepository;
     /** 근처 병원 조회 시 한 번에 반환할 최대 개수 (일단 500개로 상한 설정). */
     private static final int NEARBY_MAX_RESULTS = 500;
     /** 근처 병원 조회에서 허용할 최대 반경 (미터) — 예: 50km */
@@ -57,12 +61,23 @@ public class HospitalService {
     public Optional<HospitalResponse> findById(Long id) {
         return hospitalRepository.findById(id).map(h -> {
             HospitalResponse hr = HospitalResponse.from(h);
+
+            // 리뷰 요약
             Map<Long, ReviewSummary> map = reviewService.getReviewSummaryByHospitalIds(List.of(id));
             ReviewSummary summary = map.get(id);
             if (summary != null) {
                 hr = hr.toBuilder()
                         .averageRating(summary.getAverageRating())
                         .reviewCount(summary.getReviewCount().intValue())
+                        .build();
+            }
+
+            // 병원평가정보 요약
+            Optional<HospitalEvaluation> evOpt = hospitalEvaluationRepository.findByHospital_Id(id);
+            if (evOpt.isPresent()) {
+                HospitalEvaluationSummary evalDto = HospitalEvaluationSummary.from(evOpt.get());
+                hr = hr.toBuilder()
+                        .evaluation(evalDto)
                         .build();
             }
             return hr;
@@ -123,6 +138,10 @@ public class HospitalService {
 
         Map<Long, ReviewSummary> reviewSummaryMap = reviewService.getReviewSummaryByHospitalIds(orderedIds);
 
+        List<HospitalEvaluation> evaluations = hospitalEvaluationRepository.findByHospital_IdIn(orderedIds);
+        Map<Long, HospitalEvaluationSummary> evaluationMap = evaluations.stream()
+                .collect(Collectors.toMap(ev -> ev.getHospital().getId(), HospitalEvaluationSummary::from));
+
         return orderedIds.stream()
                 .map(id -> {
                     Hospital h = idToHospital.get(id);
@@ -135,6 +154,10 @@ public class HospitalService {
                                 .averageRating(summary.getAverageRating())
                                 .reviewCount(summary.getReviewCount().intValue())
                                 .build();
+                    }
+                    HospitalEvaluationSummary evalSummary = evaluationMap.get(id);
+                    if (evalSummary != null) {
+                        hr = hr.toBuilder().evaluation(evalSummary).build();
                     }
                     return NearbyHospitalResponse.builder()
                             .hospital(hr)

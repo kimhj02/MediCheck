@@ -1,0 +1,5 @@
+app:
+  jwt:
+    # 테스트 환경용 시크릿 (실서비스에서는 사용 금지)
+    secret: "test-secret-for-jwt-should-be-long-enough-123456"
+

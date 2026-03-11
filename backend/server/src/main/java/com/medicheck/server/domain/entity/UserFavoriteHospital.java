@@ -40,4 +40,3 @@ public class UserFavoriteHospital {
         this.createdAt = LocalDateTime.now();
     }
 }
-

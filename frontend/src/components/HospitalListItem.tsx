@@ -1,6 +1,7 @@
 import type React from 'react'
 import type { Hospital, NearbyHospital } from '../types/hospital'
 import { formatDistance } from '../utils/format'
+import { EvaluationStars, getEvaluationStarScore } from './EvaluationStars'
 
 function doctorSummary(h: Hospital): string | null {
   const total = h.doctorTotalCount ?? 0
@@ -27,6 +28,8 @@ export function HospitalListItem({
   onToggleFavorite,
 }: HospitalListItemProps) {
   const h = item.hospital
+  const hasEvaluation = !!h.evaluation
+  const evaluationScore = getEvaluationStarScore(h.evaluation ?? undefined)
   return (
     <div
       className="w-full px-4 py-3 rounded-xl hover:bg-sky-50 active:bg-sky-100 transition-colors border border-transparent hover:border-sky-100 cursor-pointer"
@@ -60,7 +63,17 @@ export function HospitalListItem({
         )}
       </div>
       <div className="flex items-center justify-between mt-1 text-xs text-gray-500">
-        <span className="truncate mr-2">{h.department ?? '-'}</span>
+        <span className="truncate mr-2 flex items-center gap-1.5">
+          {h.department ?? '-'}
+          {hasEvaluation && evaluationScore != null && (
+            <span className="text-amber-500 flex-shrink-0">
+              <EvaluationStars score={evaluationScore} size="sm" />
+            </span>
+          )}
+          {hasEvaluation && evaluationScore == null && (
+            <span className="text-[10px] text-emerald-700 flex-shrink-0">★ 평가정보</span>
+          )}
+        </span>
         <span className="text-sky-600 font-medium flex-shrink-0">
           {formatDistance(item.distanceMeters)}
         </span>
