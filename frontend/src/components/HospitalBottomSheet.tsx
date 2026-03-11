@@ -1,5 +1,6 @@
 import type { NearbyHospital } from '../types/hospital'
 import { formatDistance, formatDate } from '../utils/format'
+import { EvaluationStars, getEvaluationStarScore } from './EvaluationStars'
 
 interface HospitalBottomSheetProps {
   item: NearbyHospital
@@ -47,7 +48,12 @@ export function HospitalBottomSheet({
     h.reviewCount != null && h.reviewCount > 0
       ? `리뷰 ${h.reviewCount}개`
       : null
-  const typeAndReview = [h.department, reviewText].filter(Boolean).join(' · ') || '병원'
+  const hasEvaluation = !!h.evaluation
+  const evaluationScore = getEvaluationStarScore(h.evaluation ?? undefined)
+  const typeParts = [h.department]
+  if (hasEvaluation) typeParts.push('심평원 평가정보')
+  if (reviewText) typeParts.push(reviewText)
+  const typeAndReview = typeParts.filter(Boolean).join(' · ') || '병원'
 
   return (
     <>
@@ -97,17 +103,27 @@ export function HospitalBottomSheet({
           </div>
         </div>
 
-        {/* 부제: 타입 · 리뷰 / 거리 · 지역 */}
-        <div className="px-4 pb-3 text-sm text-gray-300">
-          <span>{typeAndReview}</span>
-          <span className="mx-2">·</span>
-          <span>{formatDistance(item.distanceMeters)}</span>
-          {h.address && (
-            <>
-              <span className="mx-2">·</span>
-              <span className="truncate block mt-0.5">{h.address}</span>
-            </>
+        {/* 부제: 심평원 별점 + 타입 · 리뷰 / 거리 · 지역 */}
+        <div className="px-4 pb-3 text-sm text-gray-300 space-y-1">
+          {evaluationScore != null && (
+            <div className="flex items-center gap-2">
+              <span className="text-amber-400">
+                <EvaluationStars score={evaluationScore} size="lg" />
+              </span>
+              <span className="text-gray-400 text-xs">심평원 평가</span>
+            </div>
           )}
+          <div>
+            <span>{typeAndReview}</span>
+            <span className="mx-2">·</span>
+            <span>{formatDistance(item.distanceMeters)}</span>
+            {h.address && (
+              <>
+                <span className="mx-2">·</span>
+                <span className="truncate block mt-0.5">{h.address}</span>
+              </>
+            )}
+          </div>
         </div>
 
         {/* 액션 버튼: 길찾기(지도 앱) + 리뷰 보기 */}
@@ -172,9 +188,25 @@ export function HospitalBottomSheet({
               <span>{formatDate(h.establishedDate)}</span>
             </div>
           )}
-          <p className="text-xs text-gray-400 pt-2">
-            ※ 진료 시간은 병원에 문의해 주세요
-          </p>
+          {hasEvaluation && evaluationScore != null && (
+            <div className="flex items-center gap-2 py-2 border-b border-gray-100">
+              <span className="text-gray-400 shrink-0" aria-hidden>⭐</span>
+              <div className="flex items-center gap-2">
+                <EvaluationStars score={evaluationScore} size="md" className="text-amber-500" />
+                <span className="text-sm text-gray-600">심평원 평가 {evaluationScore}점</span>
+              </div>
+            </div>
+          )}
+          <div className="pt-2 space-y-1">
+            {hasEvaluation && evaluationScore == null && (
+              <p className="text-xs text-emerald-700">
+                심평원 병원평가정보가 있는 병원입니다.
+              </p>
+            )}
+            <p className="text-xs text-gray-400">
+              ※ 진료 시간은 병원에 문의해 주세요
+            </p>
+          </div>
         </div>
       </div>
     </>

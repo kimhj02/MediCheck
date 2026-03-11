@@ -138,6 +138,10 @@ public class HospitalService {
 
         Map<Long, ReviewSummary> reviewSummaryMap = reviewService.getReviewSummaryByHospitalIds(orderedIds);
 
+        List<HospitalEvaluation> evaluations = hospitalEvaluationRepository.findByHospital_IdIn(orderedIds);
+        Map<Long, HospitalEvaluationSummary> evaluationMap = evaluations.stream()
+                .collect(Collectors.toMap(ev -> ev.getHospital().getId(), HospitalEvaluationSummary::from));
+
         return orderedIds.stream()
                 .map(id -> {
                     Hospital h = idToHospital.get(id);
@@ -150,6 +154,10 @@ public class HospitalService {
                                 .averageRating(summary.getAverageRating())
                                 .reviewCount(summary.getReviewCount().intValue())
                                 .build();
+                    }
+                    HospitalEvaluationSummary evalSummary = evaluationMap.get(id);
+                    if (evalSummary != null) {
+                        hr = hr.toBuilder().evaluation(evalSummary).build();
                     }
                     return NearbyHospitalResponse.builder()
                             .hospital(hr)
