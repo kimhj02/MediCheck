@@ -16,6 +16,8 @@ import org.springframework.web.server.ResponseStatusException;
 
 import jakarta.validation.Valid;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
+
 /**
  * 병원별 리뷰 API.
  * GET /api/hospitals/{hospitalId}/reviews — 목록 (공개)
@@ -23,6 +25,7 @@ import jakarta.validation.Valid;
  * POST /api/hospitals/{hospitalId}/reviews — 작성/수정 (인증)
  * DELETE /api/hospitals/{hospitalId}/reviews/me — 삭제 (인증)
  */
+@Tag(name = "03. 병원 리뷰", description = "병원별 리뷰 목록·작성·수정·삭제(일부는 로그인 필요)")
 @RestController
 @RequestMapping("/api/hospitals/{hospitalId}/reviews")
 @RequiredArgsConstructor

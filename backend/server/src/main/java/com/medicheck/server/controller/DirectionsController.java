@@ -15,10 +15,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
+
 /**
  * 카카오모빌리티 길찾기 API 프록시.
  * REST API 키를 서버에 보관하고, 프론트에서 호출합니다.
  */
+@Tag(name = "05. 길찾기", description = "카카오모빌리티 기반 경로·소요시간 조회")
 @RestController
 @RequestMapping("/api/directions")
 @Slf4j

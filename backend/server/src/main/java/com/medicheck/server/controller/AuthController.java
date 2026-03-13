@@ -14,6 +14,9 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.HashMap;
 import java.util.Map;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
+
+@Tag(name = "04. 인증·회원", description = "회원가입, 로그인, 카카오 OAuth, 내 정보")
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor

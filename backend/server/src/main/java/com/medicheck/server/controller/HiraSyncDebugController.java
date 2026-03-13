@@ -11,10 +11,13 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Map;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
+
 /**
  * HIRA API 디버그용 엔드포인트.
  * local 프로필에서만 활성화됩니다.
  */
+@Tag(name = "06. HIRA 디버그(local)", description = "local 프로필 전용 — HIRA API 원문 확인")
 @RestController
 @RequestMapping("/api/hospitals")
 @RequiredArgsConstructor

@@ -10,6 +10,8 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
+
 import java.util.List;
 import java.util.Map;
 
@@ -18,6 +20,7 @@ import java.util.Map;
  *
  * /api/users/me/favorites**
  */
+@Tag(name = "02. 즐겨찾기 병원", description = "로그인 사용자의 즐겨찾기 목록·추가·삭제")
 @RestController
 @RequestMapping("/api/users/me/favorites")
 @RequiredArgsConstructor

@@ -22,6 +22,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
+
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
@@ -30,6 +32,7 @@ import java.util.regex.Pattern;
 /**
  * 안심 병원 API.
  */
+@Tag(name = "01. 병원 조회·HIRA 동기화", description = "병원 목록·상세·근처 검색, 심평원 병원/평가 동기화(관리자 키 필요)")
 @RestController
 @RequestMapping("/api/hospitals")
 @RequiredArgsConstructor
