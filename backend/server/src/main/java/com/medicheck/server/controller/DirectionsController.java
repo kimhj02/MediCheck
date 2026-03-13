@@ -15,6 +15,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
 /**
@@ -44,6 +45,7 @@ public class DirectionsController {
      * 반환: Polyline 좌표 배열 [[lat,lng], ...] (카카오맵 LatLng 순서)
      * 호출 제한: IP별 30회/분 (PerIPDirectionsRateLimitFilter), 서버 전역 300회/분 (Resilience4j {@literal @}RateLimiter).
      */
+    @Operation(summary = "길찾기 경로", description = "출발지·목적지 WGS84 좌표로 카카오모빌리티 경로를 조회합니다. 응답: path([[lat,lng],...]), distance(m), duration(초). IP·전역 호출 제한 적용.")
     @GetMapping
     @RateLimiter(name = "directions")
     public ResponseEntity<?> getDirections(

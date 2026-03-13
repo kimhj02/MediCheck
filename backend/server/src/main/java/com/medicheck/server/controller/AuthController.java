@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.HashMap;
 import java.util.Map;
 
+import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
 @Tag(name = "04. 인증·회원", description = "회원가입, 로그인, 카카오 OAuth, 내 정보")
@@ -24,6 +25,7 @@ public class AuthController {
 
     private final AuthService authService;
 
+    @Operation(summary = "회원가입", description = "loginId, password, name(선택)으로 가입합니다. 성공 시 JWT token을 반환합니다. 비밀번호 8자 이상.")
     @PostMapping("/signup")
     public ResponseEntity<Map<String, Object>> signup(@RequestBody Map<String, String> body) {
         String loginId = body.get("loginId");
@@ -50,6 +52,7 @@ public class AuthController {
         }
     }
 
+    @Operation(summary = "로그인", description = "loginId, password로 로그인합니다. 성공 시 JWT token을 반환합니다.")
     @PostMapping("/login")
     public ResponseEntity<Map<String, Object>> login(@RequestBody Map<String, String> body) {
         String loginId = body.get("loginId");
@@ -71,6 +74,7 @@ public class AuthController {
      * 카카오 로그인 콜백 처리.
      * 프론트엔드에서 받은 인가 코드를 넘겨주면 JWT 토큰을 발급합니다.
      */
+    @Operation(summary = "카카오 로그인", description = "프론트에서 받은 인가 code와 redirectUri로 카카오 토큰 교환 후 JWT를 발급합니다.")
     @PostMapping("/login/kakao")
     public ResponseEntity<Map<String, Object>> kakaoLogin(@RequestBody Map<String, String> body) {
         String code = body.get("code");
@@ -95,6 +99,7 @@ public class AuthController {
         }
     }
 
+    @Operation(summary = "내 정보", description = "Authorization: Bearer JWT로 로그인한 사용자의 loginId, name, userId를 반환합니다.")
     @GetMapping("/me")
     public ResponseEntity<Map<String, Object>> me(Authentication auth) {
         if (auth == null || !auth.isAuthenticated()) {

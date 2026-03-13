@@ -16,6 +16,8 @@ import org.springframework.web.server.ResponseStatusException;
 
 import jakarta.validation.Valid;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
 /**
@@ -44,18 +46,20 @@ public class HospitalReviewController {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "사용자 정보를 찾을 수 없습니다."));
     }
 
+    @Operation(summary = "리뷰 목록", description = "해당 병원의 리뷰를 페이지 단위로 조회합니다. 공개 API.")
     @GetMapping
     public ResponseEntity<Page<HospitalReviewResponse>> getReviews(
-            @PathVariable Long hospitalId,
+            @Parameter(description = "병원 ID") @PathVariable Long hospitalId,
             @PageableDefault(size = 20, sort = "createdAt") Pageable pageable
     ) {
         Page<HospitalReviewResponse> page = reviewService.getReviews(hospitalId, pageable);
         return ResponseEntity.ok(page);
     }
 
+    @Operation(summary = "내 리뷰 조회", description = "로그인 사용자가 이 병원에 남긴 리뷰 1건. 없으면 204. Bearer JWT 필요.")
     @GetMapping("/me")
     public ResponseEntity<HospitalReviewResponse> getMyReview(
-            @PathVariable Long hospitalId,
+            @Parameter(description = "병원 ID") @PathVariable Long hospitalId,
             Authentication authentication
     ) {
         Long userId = getCurrentUserId(authentication);
@@ -64,9 +68,10 @@ public class HospitalReviewController {
                 .orElse(ResponseEntity.noContent().build());
     }
 
+    @Operation(summary = "리뷰 작성·수정", description = "rating(1~5), comment로 리뷰를 등록하거나 수정합니다. Bearer JWT 필요.")
     @PostMapping
     public ResponseEntity<HospitalReviewResponse> createOrUpdate(
-            @PathVariable Long hospitalId,
+            @Parameter(description = "병원 ID") @PathVariable Long hospitalId,
             @RequestBody @Valid HospitalReviewRequest request,
             Authentication authentication
     ) {
@@ -76,9 +81,10 @@ public class HospitalReviewController {
         return ResponseEntity.ok(response);
     }
 
+    @Operation(summary = "내 리뷰 삭제", description = "이 병원에 대해 내가 쓴 리뷰를 삭제합니다. Bearer JWT 필요.")
     @DeleteMapping("/me")
     public ResponseEntity<Void> deleteMyReview(
-            @PathVariable Long hospitalId,
+            @Parameter(description = "병원 ID") @PathVariable Long hospitalId,
             Authentication authentication
     ) {
         Long userId = getCurrentUserId(authentication);
