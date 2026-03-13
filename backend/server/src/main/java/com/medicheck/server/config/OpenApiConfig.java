@@ -16,8 +16,15 @@ public class OpenApiConfig {
     public OpenAPI medicheckOpenAPI() {
         return new OpenAPI()
                 .info(new Info()
-                        .title("MediCheck API")
-                        .description("심평원·건보 공공데이터 기반 안심 병원 찾기 서비스 API. 병원 목록/상세/근처 조회, HIRA 동기화.")
+                        .title("MediCheck · 안심 병원 찾기 API")
+                        .description("""
+                                NHIS MediCheck 백엔드 API 명세입니다.
+
+                                • **병원** — 목록·상세·근처 검색, 심평원(HIRA) 동기화(관리자)
+                                • **리뷰·즐겨찾기** — 로그인 후 이용
+                                • **인증** — 회원가입·로그인·카카오 OAuth
+                                • **길찾기** — 카카오모빌리티 경로 조회
+                                """)
                         .version("1.0"));
     }
 }
