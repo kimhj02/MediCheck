@@ -9,7 +9,6 @@ import {
   Dimensions,
   Platform,
   Linking,
-  ScrollView,
   Alert,
 } from 'react-native'
 import MapView, { Marker, Region } from 'react-native-maps'
@@ -32,6 +31,7 @@ const GUMI_LNG = 128.34
 const RADIUS_OPTIONS = [
   { value: 3000, label: '3km' },
   { value: 10000, label: '10km' },
+  { value: 15000, label: '15km' },
   { value: 20000, label: '20km' },
   { value: 50000, label: '50km' },
 ] as const
@@ -253,32 +253,27 @@ export default function MapScreen() {
           주변 병원 {hospitals?.length ?? 0}곳
         </Text>
 
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.radiusScroll}
-          contentContainerStyle={styles.radiusRow}
-        >
-          {RADIUS_OPTIONS.map((opt) => (
-            <TouchableOpacity
-              key={opt.value}
-              style={[
-                styles.radiusChip,
-                radiusMeters === opt.value && styles.radiusChipActive,
-              ]}
-              onPress={() => setRadiusMeters(opt.value)}
-            >
-              <Text
-                style={[
-                  styles.radiusChipText,
-                  radiusMeters === opt.value && styles.radiusChipTextActive,
-                ]}
+        <Text style={styles.radiusSectionLabel}>검색 반경</Text>
+        <View style={styles.radiusRow}>
+          {RADIUS_OPTIONS.map((opt) => {
+            const selected = radiusMeters === opt.value
+            return (
+              <TouchableOpacity
+                key={opt.value}
+                activeOpacity={0.85}
+                style={[styles.radiusChip, selected && styles.radiusChipActive]}
+                onPress={() => setRadiusMeters(opt.value)}
               >
-                {opt.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
+                <Text
+                  style={[styles.radiusChipText, selected && styles.radiusChipTextActive]}
+                  numberOfLines={1}
+                >
+                  {opt.label}
+                </Text>
+              </TouchableOpacity>
+            )
+          })}
+        </View>
 
         {isError && (
           <Text style={styles.apiError}>
@@ -304,6 +299,7 @@ export default function MapScreen() {
           <ActivityIndicator size="small" color="#0EA5E9" />
         ) : (
           <FlatList
+            style={styles.hospitalList}
             data={hospitals}
             keyExtractor={(item) => String(item.hospital.id)}
             renderItem={({ item }) => (
@@ -371,12 +367,15 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
+  hospitalList: {
+    flex: 1,
+  },
   bottomSheet: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    height: height * 0.35,
+    height: height * 0.42,
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
@@ -458,29 +457,39 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textDecorationLine: 'underline',
   },
-  radiusScroll: {
-    maxHeight: 44,
-    marginBottom: 10,
+  radiusSectionLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#475569',
+    marginBottom: 8,
   },
   radiusRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
-    gap: 8,
-    paddingBottom: 4,
+    marginBottom: 12,
   },
   radiusChip: {
     paddingHorizontal: 14,
-    paddingVertical: 8,
+    paddingVertical: 10,
+    minHeight: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
     borderRadius: 20,
     backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginRight: 8,
+    marginBottom: 8,
   },
   radiusChipActive: {
     backgroundColor: '#0EA5E9',
+    borderColor: '#0284C7',
   },
   radiusChipText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#64748B',
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#334155',
   },
   radiusChipTextActive: {
     color: '#FFFFFF',
