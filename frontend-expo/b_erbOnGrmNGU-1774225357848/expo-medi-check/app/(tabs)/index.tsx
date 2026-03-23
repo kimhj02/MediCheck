@@ -230,7 +230,7 @@ export default function MapScreen() {
               anchor={{ x: 0.5, y: 0.5 }}
             >
               <View style={styles.marker}>
-                <Ionicons name="medical" size={12} color="#FFFFFF" />
+                <Ionicons name="medical" size={9} color="#FFFFFF" />
               </View>
             </Marker>
           ))}
@@ -344,8 +344,8 @@ const styles = StyleSheet.create({
   },
   marker: {
     backgroundColor: '#0EA5E9',
-    padding: 3,
-    borderRadius: 10,
+    padding: 2,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: '#FFFFFF',
   },

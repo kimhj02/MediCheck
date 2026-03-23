@@ -81,12 +81,22 @@ export function buildKakaoMapHtml(
             var map = new kakao.maps.Map(container, options);
             window.kakaoMap = map;
 
+            var dotSvg =
+              '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 12 12">' +
+              '<circle cx="6" cy="6" r="4.5" fill="#0EA5E9" stroke="#ffffff" stroke-width="1.5"/></svg>';
+            var dotSrc =
+              'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(dotSvg);
+            var dotSize = new kakao.maps.Size(12, 12);
+            var dotOpt = { offset: new kakao.maps.Point(6, 6) };
+            var dotImg = new kakao.maps.MarkerImage(dotSrc, dotSize, dotOpt);
+
             var markers = [];
             HOSPITALS.forEach(function (h) {
               if (h.lat == null || h.lng == null || isNaN(h.lat) || isNaN(h.lng)) return;
               var m = new kakao.maps.Marker({
                 position: new kakao.maps.LatLng(h.lat, h.lng),
-                title: h.name || ''
+                title: h.name || '',
+                image: dotImg
               });
               kakao.maps.event.addListener(m, 'click', function () {
                 send({ type: 'marker', id: h.id });
@@ -100,6 +110,23 @@ export function buildKakaoMapHtml(
                   map: map,
                   averageCenter: true,
                   minLevel: 7,
+                  minClusterSize: 2,
+                  gridSize: 50,
+                  styles: [
+                    {
+                      width: '38px',
+                      height: '38px',
+                      background: 'rgba(14,165,233,0.92)',
+                      borderRadius: '19px',
+                      color: '#fff',
+                      textAlign: 'center',
+                      fontWeight: '600',
+                      fontSize: '12px',
+                      lineHeight: '38px',
+                      boxSizing: 'border-box',
+                      border: '2px solid #fff'
+                    }
+                  ],
                   markers: markers
                 });
               } else {
