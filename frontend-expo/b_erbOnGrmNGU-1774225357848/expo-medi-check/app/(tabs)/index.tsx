@@ -138,9 +138,13 @@ export default function MapScreen() {
     enabled: !!location,
   })
 
-  const handleMarkerPress = useCallback((hospital: NearbyHospital) => {
-    setSelectedHospital(hospital)
-  }, [])
+  const handleMarkerPress = useCallback(
+    (nearby: NearbyHospital) => {
+      setSelectedHospital(nearby)
+      router.push(`/hospital/${nearby.hospital.id}`)
+    },
+    [router]
+  )
 
   /** GPS 다시 읽고 지도 이동 */
   const handleRecenter = useCallback(() => {
