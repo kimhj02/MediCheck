@@ -39,6 +39,9 @@ public class HospitalResponse {
     /** 심평원 병원평가정보 요약 (있으면 객체, 없으면 null) */
     private HospitalEvaluationSummary evaluation;
 
+    /** 심평원 병원진료정보(Top5) 요약 (있으면 객체, 없으면 null) */
+    private HospitalTop5Summary top5;
+
     public static HospitalResponse from(Hospital hospital) {
         return HospitalResponse.builder()
                 .id(hospital.getId())
@@ -60,6 +63,7 @@ public class HospitalResponse {
                 .averageRating(null)
                 .reviewCount(null)
                 .evaluation(null)
+                .top5(null)
                 .build();
     }
 }

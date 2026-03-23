@@ -68,6 +68,10 @@ hira:
   eval:
     base-url: https://apis.data.go.kr/B551182/hospAsmInfoService1
     service-key: ${HIRA_SERVICE_KEY:}
+  # 병원진료정보조회서비스 (getClinicTop5List1)
+  diag:
+    base-url: https://apis.data.go.kr/B551182/hospDiagInfoService1
+    service-key: ${HIRA_SERVICE_KEY:}
 
 # Swagger UI: 태그를 이름(01. 02. …) 기준 알파벳·숫자 순으로 정렬 → 1→2→3→4→5→6 순서로 표시
 springdoc:

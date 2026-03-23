@@ -6,6 +6,7 @@ import com.medicheck.server.dto.NearbyHospitalResponse;
 import com.medicheck.server.dto.SyncResult;
 import com.medicheck.server.service.HiraSyncService;
 import com.medicheck.server.service.HospitalEvaluationSyncService;
+import com.medicheck.server.service.HospitalTop5SyncService;
 import com.medicheck.server.service.HospitalService;
 import com.medicheck.server.service.NearbyQueryContextHolder;
 import com.medicheck.server.service.NearbyQueryMetadata;
@@ -47,6 +48,7 @@ public class HospitalController {
     private final HospitalService hospitalService;
     private final HiraSyncService hiraSyncService;
     private final HospitalEvaluationSyncService hospitalEvaluationSyncService;
+    private final HospitalTop5SyncService hospitalTop5SyncService;
 
     /**
      * 병원 목록 조회 (검색/필터/정렬/페이지네이션).
@@ -305,6 +307,73 @@ public class HospitalController {
             log.error("병원평가정보 1건 동기화 실패 errorId={}", errorId, e);
             return ResponseEntity.status(500).body(Map.of(
                     "error", "sync-evaluations-one failed",
+                    "message", "internal server error",
+                    "errorId", errorId
+            ));
+        }
+    }
+
+    /**
+     * 주소에 특정 키워드가 포함된 병원만 Top5(진료량 상위 5 질병)를 동기화 (예: 구미 지역).
+     * X-Admin-Key 헤더 필요.
+     * POST /api/hospitals/sync/top5/region?addressKeyword=구미
+     * POST /api/hospitals/sync/top5/region?addressKeyword=구미&maxSynced=100
+     */
+    @Operation(summary = "심평원 진료 Top5 지역 동기화", description = "관리자 키 필요. 주소에 addressKeyword(예: 구미)가 포함된 병원만 Top5(진료량 상위 5 질병) 1건씩 동기화합니다.")
+    @PostMapping("/sync/top5/region")
+    public ResponseEntity<?> syncTop5ByRegion(
+            @RequestParam("addressKeyword") String addressKeyword,
+            @RequestParam(required = false) Integer maxSynced
+    ) {
+        if (addressKeyword == null || addressKeyword.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "error", "invalid_addressKeyword",
+                    "message", "addressKeyword는 필수입니다 (예: 구미)."
+            ));
+        }
+        try {
+            int count = hospitalTop5SyncService.syncByAddressKeyword(addressKeyword.trim(), maxSynced);
+            return ResponseEntity.ok(Map.of(
+                    "synced", count,
+                    "addressKeyword", addressKeyword.trim(),
+                    "message", "해당 지역 진료 Top5 동기화 완료"
+            ));
+        } catch (Exception e) {
+            String errorId = java.util.UUID.randomUUID().toString();
+            log.error("진료 Top5 지역 동기화 실패 errorId={}", errorId, e);
+            return ResponseEntity.status(500).body(Map.of(
+                    "error", "sync-top5-region failed",
+                    "message", "internal server error",
+                    "errorId", errorId
+            ));
+        }
+    }
+
+    /**
+     * 특정 요양기호(ykiho)의 진료 Top5(진료량 상위 5 질병)를 1건 동기화한다.
+     * X-Admin-Key 헤더 필요.
+     * POST /api/hospitals/sync/top5/one?ykiho=암호화된요양기호
+     */
+    @Operation(summary = "심평원 진료 Top5 1건 동기화", description = "관리자 키 필요. 요양기호(ykiho) 한 병원의 Top5(진료량 상위 5 질병) 데이터를 저장·갱신합니다.")
+    @PostMapping("/sync/top5/one")
+    public ResponseEntity<?> syncTop5One(@RequestParam("ykiho") String ykiho) {
+        if (ykiho == null || ykiho.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "error", "invalid_ykiho",
+                    "message", "ykiho는 필수입니다."
+            ));
+        }
+        try {
+            boolean synced = hospitalTop5SyncService.syncOne(ykiho);
+            if (synced) {
+                return ResponseEntity.ok(Map.of("synced", true, "message", "해당 병원 Top5 동기화 완료"));
+            }
+            return ResponseEntity.ok(Map.of("synced", false, "message", "해당 병원이 DB에 없거나 API 결과가 없습니다."));
+        } catch (Exception e) {
+            String errorId = java.util.UUID.randomUUID().toString();
+            log.error("진료 Top5 1건 동기화 실패 errorId={}", errorId, e);
+            return ResponseEntity.status(500).body(Map.of(
+                    "error", "sync-top5-one failed",
                     "message", "internal server error",
                     "errorId", errorId
             ));
