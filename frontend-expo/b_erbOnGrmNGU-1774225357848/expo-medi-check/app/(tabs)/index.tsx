@@ -267,6 +267,8 @@ export default function MapScreen() {
                 <Text
                   style={[styles.radiusChipText, selected && styles.radiusChipTextActive]}
                   numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.82}
                 >
                   {opt.label}
                 </Text>
@@ -458,38 +460,40 @@ const styles = StyleSheet.create({
     textDecorationLine: 'underline',
   },
   radiusSectionLabel: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
     color: '#475569',
-    marginBottom: 8,
+    marginBottom: 6,
   },
   radiusRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    marginBottom: 12,
+    flexWrap: 'nowrap',
+    alignItems: 'stretch',
+    marginBottom: 10,
+    columnGap: 4,
   },
   radiusChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    minHeight: 40,
+    flex: 1,
+    minWidth: 0,
+    paddingHorizontal: 2,
+    paddingVertical: 5,
+    minHeight: 28,
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: 20,
+    borderRadius: 12,
     backgroundColor: '#F1F5F9',
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    marginRight: 8,
-    marginBottom: 8,
   },
   radiusChipActive: {
     backgroundColor: '#0EA5E9',
     borderColor: '#0284C7',
   },
   radiusChipText: {
-    fontSize: 14,
+    fontSize: 11,
     fontWeight: '700',
     color: '#334155',
+    textAlign: 'center',
   },
   radiusChipTextActive: {
     color: '#FFFFFF',
