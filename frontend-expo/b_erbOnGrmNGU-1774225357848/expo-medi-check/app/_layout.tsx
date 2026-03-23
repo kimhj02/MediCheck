@@ -70,6 +70,11 @@ export default function RootLayout() {
           name="signup"
           options={{ title: '회원가입', presentation: 'modal' }}
         />
+        <Stack.Screen name="my-reviews" options={{ title: '내 리뷰' }} />
+        <Stack.Screen name="notification-settings" options={{ title: '알림 설정' }} />
+        <Stack.Screen name="about" options={{ title: '앱 정보' }} />
+        <Stack.Screen name="terms" options={{ title: '이용약관' }} />
+        <Stack.Screen name="privacy" options={{ title: '개인정보처리방침' }} />
       </Stack>
     </QueryClientProvider>
   )

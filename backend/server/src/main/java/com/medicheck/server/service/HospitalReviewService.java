@@ -7,6 +7,7 @@ import com.medicheck.server.domain.repository.HospitalRepository;
 import com.medicheck.server.domain.repository.HospitalReviewRepository;
 import com.medicheck.server.domain.repository.UserRepository;
 import com.medicheck.server.dto.HospitalReviewResponse;
+import com.medicheck.server.dto.MyHospitalReviewItemResponse;
 import com.medicheck.server.dto.ReviewSummary;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -49,6 +50,12 @@ public class HospitalReviewService {
     public Optional<HospitalReviewResponse> getMyReview(Long userId, Long hospitalId) {
         return reviewRepository.findByUserIdAndHospitalId(userId, hospitalId)
                 .map(HospitalReviewResponse::from);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<MyHospitalReviewItemResponse> getMyReviewsForUser(Long userId, Pageable pageable) {
+        return reviewRepository.findByUser_IdOrderByUpdatedAtDesc(userId, pageable)
+                .map(MyHospitalReviewItemResponse::from);
     }
 
     @Transactional

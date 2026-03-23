@@ -15,6 +15,7 @@ import MapView, { Marker, Region } from 'react-native-maps'
 import Constants from 'expo-constants'
 import * as Location from 'expo-location'
 import { useRouter } from 'expo-router'
+import { useFocusEffect } from '@react-navigation/native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useQuery } from '@tanstack/react-query'
 import { Ionicons } from '@expo/vector-icons'
@@ -31,6 +32,9 @@ import {
 import { GOOGLE_MAP_HIDE_POI_STYLE } from '@/lib/mapHidePoiStyle'
 
 const { height } = Dimensions.get('window')
+
+/** FlatList scrollToIndex용 대략적 행 높이(카드+margin) — onScrollToIndexFailed 시에도 사용 */
+const ESTIMATED_HOSPITAL_LIST_ROW = 200
 
 function coordsToLocation(lat: number, lng: number): Location.LocationObject {
   return {
@@ -56,6 +60,9 @@ export default function MapScreen() {
   const insets = useSafeAreaInsets()
   const useKakaoMap = kakaoMapAppKey.trim().length > 0
   const mapRef = useRef<MapView>(null)
+  const hospitalListRef = useRef<FlatList<NearbyHospital>>(null)
+  /** 마커 → 상세 진입 후 복귀 시에만 리스트 스크롤 */
+  const pendingListScrollRef = useRef(false)
   const locationRef = useRef<Location.LocationObject | null>(null)
   const [location, setLocation] = useState<Location.LocationObject | null>(null)
   const [region, setRegion] = useState<Region | null>(null)
@@ -141,9 +148,36 @@ export default function MapScreen() {
   const handleMarkerPress = useCallback(
     (nearby: NearbyHospital) => {
       setSelectedHospital(nearby)
+      pendingListScrollRef.current = true
       router.push(`/hospital/${nearby.hospital.id}`)
     },
     [router]
+  )
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!pendingListScrollRef.current || !selectedHospital || !hospitals?.length) {
+        return
+      }
+      const index = hospitals.findIndex(
+        (h) => h.hospital.id === selectedHospital.hospital.id
+      )
+      if (index < 0) {
+        pendingListScrollRef.current = false
+        return
+      }
+      pendingListScrollRef.current = false
+
+      const scroll = () => {
+        hospitalListRef.current?.scrollToIndex({
+          index,
+          animated: true,
+          viewPosition: 0.15,
+        })
+      }
+      const t = setTimeout(scroll, 120)
+      return () => clearTimeout(t)
+    }, [selectedHospital, hospitals])
   )
 
   /** GPS 다시 읽고 지도 이동 */
@@ -307,6 +341,7 @@ export default function MapScreen() {
           <ActivityIndicator size="small" color="#0EA5E9" />
         ) : (
           <FlatList
+            ref={hospitalListRef}
             style={styles.hospitalList}
             data={hospitals}
             keyExtractor={(item) => String(item.hospital.id)}
@@ -320,6 +355,17 @@ export default function MapScreen() {
             )}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.listContent}
+            getItemLayout={(_, index) => ({
+              length: ESTIMATED_HOSPITAL_LIST_ROW,
+              offset: ESTIMATED_HOSPITAL_LIST_ROW * index,
+              index,
+            })}
+            onScrollToIndexFailed={({ index }) => {
+              hospitalListRef.current?.scrollToOffset({
+                offset: Math.max(0, index * ESTIMATED_HOSPITAL_LIST_ROW),
+                animated: true,
+              })
+            }}
           />
         )}
       </View>

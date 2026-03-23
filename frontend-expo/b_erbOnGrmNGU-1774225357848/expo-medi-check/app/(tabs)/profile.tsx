@@ -1,12 +1,21 @@
 import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native'
 import { useRouter } from 'expo-router'
+import Constants from 'expo-constants'
 import { Ionicons } from '@expo/vector-icons'
 import { useAuthStore } from '@/store/authStore'
+
+function profileInitial(name: string, loginId: string): string {
+  const s = (name || loginId).trim()
+  if (!s) return '?'
+  const ch = s.charAt(0)
+  return /[A-Za-z]/.test(ch) ? ch.toUpperCase() : ch
+}
 
 export default function ProfileScreen() {
   const router = useRouter()
   const user = useAuthStore((state) => state.user)
   const logout = useAuthStore((state) => state.logout)
+  const appVersion = Constants.expoConfig?.version ?? '1.0.0'
 
   const handleLogout = () => {
     Alert.alert('로그아웃', '정말 로그아웃 하시겠습니까?', [
@@ -50,22 +59,35 @@ export default function ProfileScreen() {
         </View>
 
         <View style={styles.menuSection}>
-          <TouchableOpacity style={styles.menuItem}>
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => router.push('/about')}
+          >
             <Ionicons name="information-circle-outline" size={24} color="#64748B" />
             <Text style={styles.menuText}>앱 정보</Text>
             <Ionicons name="chevron-forward" size={20} color="#CBD5E1" />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.menuItem}>
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => router.push('/terms')}
+          >
             <Ionicons name="document-text-outline" size={24} color="#64748B" />
             <Text style={styles.menuText}>이용약관</Text>
             <Ionicons name="chevron-forward" size={20} color="#CBD5E1" />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.menuItem}>
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => router.push('/privacy')}
+          >
             <Ionicons name="shield-checkmark-outline" size={24} color="#64748B" />
             <Text style={styles.menuText}>개인정보처리방침</Text>
             <Ionicons name="chevron-forward" size={20} color="#CBD5E1" />
           </TouchableOpacity>
         </View>
+
+        <Text style={styles.version}>
+          MediCheck v{appVersion}
+        </Text>
       </View>
     )
   }
@@ -75,7 +97,7 @@ export default function ProfileScreen() {
       <View style={styles.userHeader}>
         <View style={styles.avatar}>
           <Text style={styles.avatarText}>
-            {(user.name || user.loginId).charAt(0).toUpperCase()}
+            {profileInitial(user.name ?? '', user.loginId)}
           </Text>
         </View>
         <Text style={styles.userName}>{user.name || user.loginId}</Text>
@@ -91,7 +113,10 @@ export default function ProfileScreen() {
           <Text style={styles.menuText}>즐겨찾기</Text>
           <Ionicons name="chevron-forward" size={20} color="#CBD5E1" />
         </TouchableOpacity>
-        <TouchableOpacity style={styles.menuItem}>
+        <TouchableOpacity
+          style={styles.menuItem}
+          onPress={() => router.push('/my-reviews')}
+        >
           <Ionicons name="create-outline" size={24} color="#64748B" />
           <Text style={styles.menuText}>내 리뷰</Text>
           <Ionicons name="chevron-forward" size={20} color="#CBD5E1" />
@@ -99,12 +124,18 @@ export default function ProfileScreen() {
       </View>
 
       <View style={styles.menuSection}>
-        <TouchableOpacity style={styles.menuItem}>
+        <TouchableOpacity
+          style={styles.menuItem}
+          onPress={() => router.push('/notification-settings')}
+        >
           <Ionicons name="notifications-outline" size={24} color="#64748B" />
           <Text style={styles.menuText}>알림 설정</Text>
           <Ionicons name="chevron-forward" size={20} color="#CBD5E1" />
         </TouchableOpacity>
-        <TouchableOpacity style={styles.menuItem}>
+        <TouchableOpacity
+          style={styles.menuItem}
+          onPress={() => router.push('/about')}
+        >
           <Ionicons name="information-circle-outline" size={24} color="#64748B" />
           <Text style={styles.menuText}>앱 정보</Text>
           <Ionicons name="chevron-forward" size={20} color="#CBD5E1" />
@@ -118,7 +149,7 @@ export default function ProfileScreen() {
         </TouchableOpacity>
       </View>
 
-      <Text style={styles.version}>MediCheck v1.0.0</Text>
+      <Text style={styles.version}>MediCheck v{appVersion}</Text>
     </View>
   )
 }
@@ -245,5 +276,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#94A3B8',
     marginTop: 24,
+    marginBottom: 8,
   },
 })

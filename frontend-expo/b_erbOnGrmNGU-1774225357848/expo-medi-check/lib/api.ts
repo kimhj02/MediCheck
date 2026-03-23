@@ -11,11 +11,27 @@ import {
   SignupRequest,
   HospitalReviewRequest,
   DirectionsResponse,
+  MyHospitalReviewItem,
 } from '@/types'
 
-/** API 서버 주소. .env의 EXPO_PUBLIC_API_URL 또는 app.config.js extra.apiUrl */
-const BASE_URL =
-  Constants.expoConfig?.extra?.apiUrl ?? 'http://localhost:8080/api'
+/**
+ * 백엔드는 `/api` 프리픽스로 컨트롤러를 노출합니다.
+ * EXPO_PUBLIC_API_URL에 호스트만 적은 경우(예: http://192.168.0.5:8080) `/api`가 빠져 404가 나므로 보정합니다.
+ */
+function resolveApiBaseUrl(raw: string | undefined): string {
+  const fallbackHost = 'http://localhost:8080'
+  const trimmed = (raw ?? '').trim() || fallbackHost
+  const noTrailingSlash = trimmed.replace(/\/+$/, '')
+  if (noTrailingSlash.endsWith('/api')) return noTrailingSlash
+  return `${noTrailingSlash}/api`
+}
+
+const BASE_URL = resolveApiBaseUrl(
+  Constants.expoConfig?.extra?.apiUrl as string | undefined
+)
+
+/** RN에서 서버가 꺼져 있거나 주소가 틀리면 fetch가 끝나지 않는 경우가 있어 상한을 둡니다. */
+const FETCH_TIMEOUT_MS = 25_000
 
 async function fetchApi<T>(
   endpoint: string,
@@ -32,10 +48,41 @@ async function fetchApi<T>(
     ;(headers as Record<string, string>)['Authorization'] = `Bearer ${token}`
   }
 
-  const response = await fetch(`${BASE_URL}${endpoint}`, {
-    ...options,
-    headers,
-  })
+  const controller = new AbortController()
+  let timedOut = false
+  const timeoutId = setTimeout(() => {
+    timedOut = true
+    controller.abort()
+  }, FETCH_TIMEOUT_MS)
+
+  const parentSignal = options.signal
+  if (parentSignal) {
+    if (parentSignal.aborted) controller.abort()
+    else
+      parentSignal.addEventListener('abort', () => controller.abort(), {
+        once: true,
+      })
+  }
+
+  let response: Response
+  try {
+    response = await fetch(`${BASE_URL}${endpoint}`, {
+      ...options,
+      headers,
+      signal: controller.signal,
+    })
+  } catch (e) {
+    if (e instanceof Error && e.name === 'AbortError') {
+      throw new Error(
+        timedOut
+          ? '서버 응답이 없습니다. 백엔드 실행 여부와 EXPO_PUBLIC_API_URL(실기기는 PC IP)을 확인해 주세요.'
+          : '요청이 취소되었습니다.'
+      )
+    }
+    throw e
+  } finally {
+    clearTimeout(timeoutId)
+  }
 
   if (!response.ok) {
     const errBody = await response.text().catch(() => '')
@@ -43,7 +90,9 @@ async function fetchApi<T>(
     try {
       const parsed = JSON.parse(errBody)
       if (parsed?.message) message = parsed.message
-    } catch {}
+    } catch {
+      /* ignore */
+    }
     throw new Error(message)
   }
 
@@ -138,6 +187,16 @@ export async function deleteMyReview(hospitalId: number): Promise<void> {
 
 export async function getFavorites(): Promise<Hospital[]> {
   return fetchApi('/users/me/favorites')
+}
+
+export async function getMyReviews(
+  page = 0,
+  size = 20
+): Promise<Page<MyHospitalReviewItem>> {
+  const params = new URLSearchParams()
+  params.set('page', String(page))
+  params.set('size', String(size))
+  return fetchApi(`/users/me/reviews?${params}`)
 }
 
 export async function addFavorite(hospitalId: number): Promise<void> {

@@ -17,6 +17,7 @@ module.exports = {
     scheme: appJson.expo.scheme || 'medicheck',
     extra: {
       ...(appJson.expo.extra || {}),
+      /** 호스트만 넣어도 됨(예: http://192.168.x.x:8080) → 앱에서 자동으로 `/api` 붙임 */
       apiUrl: process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8080/api',
       /** 카카오맵 JS 키: Expo 전용 또는 웹과 동일한 VITE_KAKAO_APP_KEY. Web 플랫폼에 https://localhost 등록 */
       kakaoMapAppKey:

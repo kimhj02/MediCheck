@@ -84,6 +84,17 @@ export interface HospitalReviewRequest {
   comment?: string
 }
 
+/** 내 정보 → 내 리뷰 목록 API 항목 */
+export interface MyHospitalReviewItem {
+  hospitalId: number
+  hospitalName: string
+  id: number
+  rating: number
+  comment: string | null
+  createdAt: string
+  updatedAt: string
+}
+
 // ─── 페이지네이션 ────────────────────────────────────────────────────
 
 export interface Page<T> {

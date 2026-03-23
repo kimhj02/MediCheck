@@ -51,6 +51,7 @@ export default function ReviewModal({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['reviews', hospitalId] })
       queryClient.invalidateQueries({ queryKey: ['myReview', hospitalId] })
+      queryClient.invalidateQueries({ queryKey: ['myReviews'] })
       queryClient.invalidateQueries({ queryKey: ['hospital', hospitalId] })
       Alert.alert('완료', '리뷰가 등록되었습니다.')
       onClose()
@@ -65,6 +66,7 @@ export default function ReviewModal({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['reviews', hospitalId] })
       queryClient.invalidateQueries({ queryKey: ['myReview', hospitalId] })
+      queryClient.invalidateQueries({ queryKey: ['myReviews'] })
       queryClient.invalidateQueries({ queryKey: ['hospital', hospitalId] })
       Alert.alert('완료', '리뷰가 삭제되었습니다.')
       onClose()
