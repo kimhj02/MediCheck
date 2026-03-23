@@ -13,7 +13,7 @@ import {
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
-import { useQuery } from '@tanstack/react-query'
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import * as Location from 'expo-location'
 import { Ionicons } from '@expo/vector-icons'
 import { getHospitals, getNearbyHospitals } from '@/lib/api'
@@ -132,21 +132,46 @@ export default function SearchScreen() {
   const [mode, setMode] = useState<SearchMode>('all')
   const [keyword, setKeyword] = useState('')
   const [selectedDepartment, setSelectedDepartment] = useState('전체')
-  const [page, setPage] = useState(0)
   const [userLocation, setUserLocation] = useState<Location.LocationObject | null>(null)
   const [modeMenuVisible, setModeMenuVisible] = useState(false)
 
-  const { data, isLoading, isFetching } = useQuery({
-    queryKey: ['hospitals', keyword, selectedDepartment, page],
-    queryFn: () =>
+  const {
+    data: hospitalPages,
+    fetchNextPage,
+    hasNextPage,
+    isLoading: hospitalsLoading,
+    isFetchingNextPage,
+  } = useInfiniteQuery({
+    queryKey: ['hospitals', keyword, selectedDepartment],
+    initialPageParam: 0,
+    queryFn: ({ pageParam }) =>
       getHospitals({
         keyword: keyword || undefined,
         department: selectedDepartment === '전체' ? undefined : selectedDepartment,
-        page,
+        page: pageParam,
         size: 20,
       }),
+    getNextPageParam: (lastPage) =>
+      lastPage.last ? undefined : lastPage.number + 1,
     enabled: mode === 'all',
   })
+
+  const allHospitals = useMemo(
+    () => hospitalPages?.pages.flatMap((p) => p.content) ?? [],
+    [hospitalPages?.pages]
+  )
+
+  const totalSearchHits = hospitalPages?.pages[0]?.totalElements ?? 0
+
+  /** 동일 병원이 페이지 경계에 중복될 때를 대비 (안전) */
+  const dedupedHospitals = useMemo(() => {
+    const seen = new Set<number>()
+    return allHospitals.filter((h) => {
+      if (seen.has(h.id)) return false
+      seen.add(h.id)
+      return true
+    })
+  }, [allHospitals])
 
   const {
     data: nearbyRaw,
@@ -176,12 +201,10 @@ export default function SearchScreen() {
 
   const handleDepartmentSelect = useCallback((dept: string) => {
     setSelectedDepartment(dept)
-    setPage(0)
   }, [])
 
   const handleModeChange = useCallback((next: SearchMode) => {
     setMode(next)
-    setPage(0)
     if (next === 'nearby') {
       /** 전체 검색에서 고른 진료과가 그대로면 DB department(clCdNm)와 불일치해 주변 0건이 되는 경우 방지 */
       setSelectedDepartment('전체')
@@ -193,18 +216,16 @@ export default function SearchScreen() {
 
   const handleLoadMore = useCallback(() => {
     if (mode !== 'all') return
-    if (data && !data.last && !isFetching) {
-      setPage((prev) => prev + 1)
+    if (hasNextPage && !isFetchingNextPage) {
+      fetchNextPage()
     }
-  }, [mode, data, isFetching])
+  }, [mode, hasNextPage, isFetchingNextPage, fetchNextPage])
 
   const handleKeywordChange = useCallback((text: string) => {
     setKeyword(text)
-    setPage(0)
   }, [])
 
-  const listLoading = mode === 'all' ? isLoading : nearbyLoading
-  const listFetching = mode === 'all' ? isFetching : nearbyFetching
+  const listLoading = mode === 'all' ? hospitalsLoading : nearbyLoading
 
   /** 탭바·홈 인디케이터 위 우측 하단 */
   const fabBottom = 2
@@ -266,7 +287,11 @@ export default function SearchScreen() {
       <View style={styles.resultHeader}>
         <Text style={styles.resultCount}>
           {mode === 'all'
-            ? `검색 결과 ${data?.totalElements ?? 0}건`
+            ? hospitalsLoading && !hospitalPages
+              ? '검색 중…'
+              : totalSearchHits > 0
+                ? `검색 결과 ${totalSearchHits}건`
+                : '검색 결과 0건'
             : `내 주변 ${filteredNearby.length}건 (3km · 옥계 흥안로 46 기준)${
                   nearbyRaw && nearbyRaw.length !== filteredNearby.length
                     ? ` — 반경 내 ${nearbyRaw.length}곳 중 필터`
@@ -285,14 +310,14 @@ export default function SearchScreen() {
           <ActivityIndicator size="large" color="#0EA5E9" />
         </View>
       ) : mode === 'all' ? (
-        data?.empty ? (
+        !hospitalsLoading && dedupedHospitals.length === 0 ? (
           <View style={styles.centered}>
             <Ionicons name="search-outline" size={48} color="#CBD5E1" />
             <Text style={styles.emptyText}>검색 결과가 없습니다</Text>
           </View>
         ) : (
           <FlatList
-            data={data?.content}
+            data={dedupedHospitals}
             keyExtractor={(item) => String(item.id)}
             renderItem={({ item }) => (
               <HospitalCard
@@ -302,9 +327,9 @@ export default function SearchScreen() {
             )}
             contentContainerStyle={[styles.listContent, styles.listContentWithFab]}
             onEndReached={handleLoadMore}
-            onEndReachedThreshold={0.5}
+            onEndReachedThreshold={0.35}
             ListFooterComponent={
-              listFetching ? (
+              isFetchingNextPage ? (
                 <ActivityIndicator size="small" color="#0EA5E9" style={styles.footer} />
               ) : null
             }
