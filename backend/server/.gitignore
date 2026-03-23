@@ -38,3 +38,6 @@ out/
 
 # 로컬 인증키/비밀 설정 (절대 커밋 금지)
 **/application-local.yaml
+
+# 로컬 환경변수 파일 (DB_PASSWORD 등)
+.env
