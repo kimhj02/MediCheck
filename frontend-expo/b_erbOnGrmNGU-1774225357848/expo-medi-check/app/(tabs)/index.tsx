@@ -24,9 +24,13 @@ import { KakaoMapView } from '@/components/KakaoMapView'
 
 const { height } = Dimensions.get('window')
 
-/** DB에 구미 등 지역 데이터가 있을 때 시뮬레이터 테스트용 (백엔드 주석 기준) */
-const GUMI_LAT = 36.12
-const GUMI_LNG = 128.34
+/**
+ * 시뮬레이터·DB 테스트용 고정 좌표
+ * 경상북도 구미시 옥계동 흥안로 46 부근 (OpenStreetMap 흥안로 옥계 구간 중심 근사)
+ * iOS 시뮬레이터: Features → Location → Custom Location 에 동일 위도/경도 입력 가능
+ */
+const PRESET_OKGYE_HEUNGAN_46_LAT = 36.14715
+const PRESET_OKGYE_HEUNGAN_46_LNG = 128.41799
 
 const RADIUS_OPTIONS = [
   { value: 3000, label: '3km' },
@@ -150,8 +154,10 @@ export default function MapScreen() {
     fetchGpsLocation()
   }, [fetchGpsLocation])
 
-  const handleUseGumiTest = useCallback(() => {
-    applyLocation(coordsToLocation(GUMI_LAT, GUMI_LNG))
+  const handleUsePresetOkgye = useCallback(() => {
+    applyLocation(
+      coordsToLocation(PRESET_OKGYE_HEUNGAN_46_LAT, PRESET_OKGYE_HEUNGAN_46_LNG)
+    )
   }, [applyLocation])
 
   if (errorMsg) {
@@ -171,11 +177,11 @@ export default function MapScreen() {
           </TouchableOpacity>
         </View>
         <Text style={styles.hintMuted}>
-          iOS 시뮬레이터: 상단 메뉴 Features → Location → Apple 또는 Custom Location으로
-          실제 테스트할 지역 좌표를 맞춰 주세요.
+          iOS 시뮬레이터: Features → Location → Custom Location → 위도 {PRESET_OKGYE_HEUNGAN_46_LAT},
+          경도 {PRESET_OKGYE_HEUNGAN_46_LNG} (옥계 흥안로 46 부근)
         </Text>
-        <TouchableOpacity style={styles.gumiLink} onPress={handleUseGumiTest}>
-          <Text style={styles.gumiLinkText}>구미 좌표로 병원 검색 테스트</Text>
+        <TouchableOpacity style={styles.gumiLink} onPress={handleUsePresetOkgye}>
+          <Text style={styles.gumiLinkText}>옥계 흥안로 46으로 이동 (테스트)</Text>
         </TouchableOpacity>
       </View>
     )
@@ -289,12 +295,12 @@ export default function MapScreen() {
           (hospitals?.length ?? 0) === 0 && (
             <Text style={styles.zeroHint}>
               이 반경에 등록된 병원이 없습니다. 반경을 넓히거나, 시뮬레이터 위치가 샌프란시스코
-              등 기본값이면 DB(한국)와 맞지 않을 수 있습니다. 「구미 테스트」로 맞춰 보세요.
+              등 기본값이면 DB(한국)와 맞지 않을 수 있습니다. 「옥계 흥안로 테스트」로 맞춰 보세요.
             </Text>
           )}
 
-        <TouchableOpacity style={styles.gumiMini} onPress={handleUseGumiTest}>
-          <Text style={styles.gumiMiniText}>구미 좌표로 이동 (DB 테스트)</Text>
+        <TouchableOpacity style={styles.gumiMini} onPress={handleUsePresetOkgye}>
+          <Text style={styles.gumiMiniText}>옥계 흥안로 46으로 이동 (테스트)</Text>
         </TouchableOpacity>
 
         {isLoading ? (
