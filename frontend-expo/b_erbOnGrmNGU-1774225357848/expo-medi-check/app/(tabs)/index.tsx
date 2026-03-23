@@ -7,7 +7,6 @@ import {
   FlatList,
   TouchableOpacity,
   Dimensions,
-  Platform,
   Linking,
   Alert,
 } from 'react-native'
@@ -15,6 +14,7 @@ import MapView, { Marker, Region } from 'react-native-maps'
 import Constants from 'expo-constants'
 import * as Location from 'expo-location'
 import { useRouter } from 'expo-router'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useQuery } from '@tanstack/react-query'
 import { Ionicons } from '@expo/vector-icons'
 import { getNearbyHospitals } from '@/lib/api'
@@ -50,6 +50,7 @@ const kakaoMapAppKey =
 
 export default function MapScreen() {
   const router = useRouter()
+  const insets = useSafeAreaInsets()
   const useKakaoMap = kakaoMapAppKey.trim().length > 0
   const mapRef = useRef<MapView>(null)
   const locationRef = useRef<Location.LocationObject | null>(null)
@@ -118,7 +119,7 @@ export default function MapScreen() {
     fetchGpsLocation()
   }, [fetchGpsLocation])
 
-  const { data: hospitals, isLoading, isError, error, refetch } = useQuery({
+  const { data: hospitals, isLoading, isError, error } = useQuery({
     queryKey: [
       'nearbyHospitals',
       location?.coords.latitude,
@@ -227,19 +228,21 @@ export default function MapScreen() {
       )}
 
       <TouchableOpacity
-        style={styles.recenterButton}
+        style={[
+          styles.recenterButton,
+          {
+            top: 8,
+            right: insets.right + 10,
+          },
+        ]}
         onPress={handleRecenter}
         disabled={locating}
       >
         {locating ? (
           <ActivityIndicator size="small" color="#0EA5E9" />
         ) : (
-          <Ionicons name="locate" size={24} color="#0EA5E9" />
+          <Ionicons name="locate" size={22} color="#0EA5E9" />
         )}
-      </TouchableOpacity>
-
-      <TouchableOpacity style={styles.refreshButton} onPress={() => refetch()}>
-        <Ionicons name="refresh" size={24} color="#0EA5E9" />
       </TouchableOpacity>
 
       <View style={styles.bottomSheet}>
@@ -340,29 +343,18 @@ const styles = StyleSheet.create({
   },
   recenterButton: {
     position: 'absolute',
-    top: Platform.OS === 'ios' ? 60 : 20,
-    right: 16,
+    zIndex: 10,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: '#FFFFFF',
-    padding: 12,
-    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  refreshButton: {
-    position: 'absolute',
-    top: Platform.OS === 'ios' ? 120 : 80,
-    right: 16,
-    backgroundColor: '#FFFFFF',
-    padding: 12,
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    elevation: 4,
   },
   hospitalList: {
     flex: 1,
