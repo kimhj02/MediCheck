@@ -22,6 +22,11 @@ import {
 } from '@/lib/api'
 import ReviewModal from '@/components/ReviewModal'
 import ReviewCard from '@/components/ReviewCard'
+import { HiraEvaluationSection } from '@/components/HiraEvaluationSection'
+import {
+  getEvaluationStarScore,
+  getHiraEvaluationRows,
+} from '@/lib/hiraEvaluation'
 
 export default function HospitalDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>()
@@ -111,6 +116,10 @@ export default function HospitalDetailScreen() {
       ].filter(Boolean)
     : []
 
+  const hiraEval = hospital.evaluation
+  const hiraStarScore = getEvaluationStarScore(hiraEval)
+  const hiraRowCount = hiraEval ? getHiraEvaluationRows(hiraEval).length : 0
+
   return (
     <>
       <ScrollView style={styles.container}>
@@ -140,6 +149,35 @@ export default function HospitalDetailScreen() {
             <Text style={styles.reviewCount}>
               리뷰 {hospital.reviewCount ?? 0}개
             </Text>
+          </View>
+
+          <View style={styles.hiraHeaderRow}>
+            <Ionicons name="ribbon-outline" size={17} color="#0284C7" />
+            <Text style={styles.hiraHeaderLabel}>심평원 병원평가</Text>
+            {hiraEval ? (
+              hiraStarScore != null ? (
+                <View style={styles.hiraHeaderStars}>
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <Ionicons
+                      key={i}
+                      name={i <= hiraStarScore ? 'star' : 'star-outline'}
+                      size={14}
+                      color="#0284C7"
+                    />
+                  ))}
+                  <Text style={styles.hiraHeaderScoreText}>
+                    {' '}
+                    평균 약 {hiraStarScore}/5
+                  </Text>
+                </View>
+              ) : hiraRowCount > 0 ? (
+                <Text style={styles.hiraHeaderSub}>항목별 등급 · 아래에서 확인</Text>
+              ) : (
+                <Text style={styles.hiraHeaderSub}>정보 있음 · 아래 참고</Text>
+              )
+            ) : (
+              <Text style={styles.hiraHeaderMuted}>연동 정보 없음</Text>
+            )}
           </View>
         </View>
 
@@ -214,6 +252,8 @@ export default function HospitalDetailScreen() {
             </View>
           )}
         </View>
+
+        <HiraEvaluationSection evaluation={hospital.evaluation} />
       </ScrollView>
 
       <ReviewModal
@@ -278,6 +318,43 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#64748B',
     marginLeft: 4,
+  },
+  hiraHeaderRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#E2E8F0',
+    gap: 6,
+  },
+  hiraHeaderLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#0C4A6E',
+  },
+  hiraHeaderStars: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    flex: 1,
+    minWidth: 120,
+  },
+  hiraHeaderScoreText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#0369A1',
+  },
+  hiraHeaderSub: {
+    fontSize: 12,
+    color: '#0369A1',
+    flex: 1,
+  },
+  hiraHeaderMuted: {
+    fontSize: 12,
+    color: '#94A3B8',
+    flex: 1,
   },
   actions: {
     flexDirection: 'row',
