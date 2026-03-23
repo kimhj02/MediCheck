@@ -25,7 +25,7 @@ import {
 /** 검색 탭「주변」모드 반경 (고정) */
 const NEARBY_SEARCH_RADIUS_METERS = 3000
 import HospitalCard from '@/components/HospitalCard'
-import type { NearbyHospital } from '@/types'
+import type { Hospital, NearbyHospital } from '@/types'
 
 const DEPARTMENTS = [
   '전체',
@@ -60,22 +60,68 @@ function coordsToLocation(lat: number, lng: number): Location.LocationObject {
   }
 }
 
+function normalizeSearchInput(s: string): string {
+  return s
+    .replace(/[\u200B-\u200D\uFEFF]/g, '')
+    .trim()
+    .toLowerCase()
+}
+
+/**
+ * 주변 모드 진료과 칩 매칭.
+ * - clCdNm(`department`)만으로는 「내과」 등과 안 맞는 경우가 많고, 상호에만 진료과가 붙는 경우가 많음 → 이름도 함께 검사.
+ * - 「외과」칩은 「정형외과」「성형외과」 등과 구분.
+ */
+function nearbyDepartmentChipMatches(hospital: Hospital, needleRaw: string): boolean {
+  const needle = needleRaw.trim().toLowerCase()
+  if (!needle) return true
+
+  const name = (hospital.name ?? '').trim().toLowerCase()
+  const dept = (hospital.department ?? '').trim().toLowerCase()
+
+  if (!name.includes(needle) && !dept.includes(needle)) {
+    return false
+  }
+
+  if (needle === '외과') {
+    if (
+      name.includes('정형외과') ||
+      dept.includes('정형외과') ||
+      name.includes('성형외과') ||
+      dept.includes('성형외과') ||
+      name.includes('신경외과') ||
+      dept.includes('신경외과') ||
+      name.includes('흉부외과') ||
+      dept.includes('흉부외과')
+    ) {
+      return false
+    }
+  }
+
+  return true
+}
+
+/**
+ * 주변 목록 클라이언트 필터.
+ */
 function filterNearbyResults(
   items: NearbyHospital[],
   keyword: string,
   department: string
 ): NearbyHospital[] {
   let list = items
-  const kw = keyword.trim().toLowerCase()
+  const kw = normalizeSearchInput(keyword)
   if (kw) {
     list = list.filter(({ hospital }) => {
       const name = (hospital.name ?? '').toLowerCase()
       const addr = (hospital.address ?? '').toLowerCase()
-      return name.includes(kw) || addr.includes(kw)
+      const dept = (hospital.department ?? '').toLowerCase()
+      return name.includes(kw) || addr.includes(kw) || dept.includes(kw)
     })
   }
-  if (department !== '전체') {
-    list = list.filter(({ hospital }) => hospital.department === department)
+  const deptTrim = department.trim()
+  if (deptTrim !== '' && deptTrim !== '전체') {
+    list = list.filter(({ hospital }) => nearbyDepartmentChipMatches(hospital, deptTrim))
   }
   return list
 }
@@ -137,6 +183,8 @@ export default function SearchScreen() {
     setMode(next)
     setPage(0)
     if (next === 'nearby') {
+      /** 전체 검색에서 고른 진료과가 그대로면 DB department(clCdNm)와 불일치해 주변 0건이 되는 경우 방지 */
+      setSelectedDepartment('전체')
       setUserLocation(
         coordsToLocation(PRESET_OKGYE_HEUNGAN_46_LAT, PRESET_OKGYE_HEUNGAN_46_LNG)
       )
