@@ -10,6 +10,8 @@ export type KakaoMapHospitalPin = {
   lat: number
   lng: number
   name: string
+  /** 병원·의원 vs 약국 마커 구분 */
+  kind: 'hospital' | 'pharmacy'
 }
 
 export function buildKakaoMapHtml(
@@ -81,22 +83,49 @@ export function buildKakaoMapHtml(
             var map = new kakao.maps.Map(container, options);
             window.kakaoMap = map;
 
-            var dotSvg =
-              '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 12 12">' +
-              '<circle cx="6" cy="6" r="4.5" fill="#0EA5E9" stroke="#ffffff" stroke-width="1.5"/></svg>';
-            var dotSrc =
-              'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(dotSvg);
-            var dotSize = new kakao.maps.Size(12, 12);
-            var dotOpt = { offset: new kakao.maps.Point(6, 6) };
-            var dotImg = new kakao.maps.MarkerImage(dotSrc, dotSize, dotOpt);
+            /** 위치만 작은 점으로 표시 (이름은 마커 title·목록에서) */
+            function markerDataUrl(kind) {
+              var fill = kind === 'pharmacy' ? '#10B981' : '#0EA5E9';
+              var S = 20;
+              var cx = S / 2;
+              var cy = S / 2;
+              var r = 6;
+              var dpr = typeof window !== 'undefined' && window.devicePixelRatio ? window.devicePixelRatio : 2;
+              var canvas = document.createElement('canvas');
+              canvas.width = Math.round(S * dpr);
+              canvas.height = Math.round(S * dpr);
+              var ctx = canvas.getContext('2d');
+              if (!ctx) {
+                return 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+              }
+              ctx.scale(dpr, dpr);
+              ctx.clearRect(0, 0, S, S);
+              ctx.beginPath();
+              ctx.arc(cx, cy, r, 0, Math.PI * 2);
+              ctx.fillStyle = fill;
+              ctx.fill();
+              ctx.strokeStyle = '#ffffff';
+              ctx.lineWidth = 1.5;
+              ctx.stroke();
+              try {
+                return canvas.toDataURL('image/png');
+              } catch (e) {
+                return 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+              }
+            }
 
             var markers = [];
             HOSPITALS.forEach(function (h) {
               if (h.lat == null || h.lng == null || isNaN(h.lat) || isNaN(h.lng)) return;
+              var kind = h.kind === 'pharmacy' ? 'pharmacy' : 'hospital';
+              var src = markerDataUrl(kind);
+              var mSize = new kakao.maps.Size(20, 20);
+              var mOpt = { offset: new kakao.maps.Point(10, 10) };
+              var mImg = new kakao.maps.MarkerImage(src, mSize, mOpt);
               var m = new kakao.maps.Marker({
                 position: new kakao.maps.LatLng(h.lat, h.lng),
                 title: h.name || '',
-                image: dotImg
+                image: mImg
               });
               kakao.maps.event.addListener(m, 'click', function () {
                 send({ type: 'marker', id: h.id });

@@ -3,6 +3,7 @@ import { StyleSheet, View, Text, ActivityIndicator, ScrollView } from 'react-nat
 import { WebView } from 'react-native-webview'
 import Constants from 'expo-constants'
 import { buildKakaoMapHtml, type KakaoMapHospitalPin } from '@/lib/kakaoMapHtml'
+import { isPharmacyLike } from '@/lib/mapPlaceKind'
 import type { NearbyHospital } from '@/types'
 
 type Extra = {
@@ -29,6 +30,9 @@ type Props = {
 /**
  * 카카오맵 JavaScript API v2 + MarkerClusterer (WebView)
  * 카카오 콘솔: 플랫폼 Web → 사이트 도메인 = `getKakaoMapBaseUrl()` (기본 https://localhost)
+ *
+ * 참고: 로드맵 타일에 포함된 기본 POI(병원·상점 아이콘/이름)는 JS API로 끄는 공식 옵션이 없어
+ * 앱 마커와 겹칠 수 있습니다. 완화하려면 위성맵 등 타입 전환 UI를 두거나, 네이티브 MapView 분기 사용을 검토하세요.
  */
 export function KakaoMapView({
   appKey,
@@ -65,6 +69,7 @@ export function KakaoMapView({
           lat: Number(h.hospital.latitude),
           lng: Number(h.hospital.longitude),
           name: h.hospital.name,
+          kind: isPharmacyLike(h.hospital) ? ('pharmacy' as const) : ('hospital' as const),
         })),
     [hospitals]
   )

@@ -9,6 +9,7 @@ import {
   Dimensions,
   Linking,
   Alert,
+  Platform,
 } from 'react-native'
 import MapView, { Marker, Region } from 'react-native-maps'
 import Constants from 'expo-constants'
@@ -20,12 +21,14 @@ import { Ionicons } from '@expo/vector-icons'
 import { getNearbyHospitals } from '@/lib/api'
 import { NearbyHospital } from '@/types'
 import HospitalCard from '@/components/HospitalCard'
+import { MapPlaceMarker } from '@/components/MapPlaceMarker'
 import { KakaoMapView } from '@/components/KakaoMapView'
 import { RADIUS_OPTIONS, DEFAULT_RADIUS_METERS } from '@/lib/radiusOptions'
 import {
   PRESET_OKGYE_HEUNGAN_46_LAT,
   PRESET_OKGYE_HEUNGAN_46_LNG,
 } from '@/lib/presetTestLocation'
+import { GOOGLE_MAP_HIDE_POI_STYLE } from '@/lib/mapHidePoiStyle'
 
 const { height } = Dimensions.get('window')
 
@@ -205,6 +208,11 @@ export default function MapScreen() {
           showsUserLocation
           showsMyLocationButton={false}
           mapType="standard"
+          /** 앱 병원 마커와 지도 기본 POI(병원·상점 아이콘) 겹침 완화 — 카카오 WebView 지도는 API로 POI 끄기 불가 */
+          showsPointsOfInterest={false}
+          customMapStyle={
+            Platform.OS === 'android' ? GOOGLE_MAP_HIDE_POI_STYLE : undefined
+          }
         >
           {hospitals?.map((item) => (
             <Marker
@@ -213,15 +221,11 @@ export default function MapScreen() {
                 latitude: item.hospital.latitude ?? 0,
                 longitude: item.hospital.longitude ?? 0,
               }}
-              title={item.hospital.name}
-              description={item.hospital.department ?? ''}
               onPress={() => handleMarkerPress(item)}
               tracksViewChanges={false}
               anchor={{ x: 0.5, y: 0.5 }}
             >
-              <View style={styles.marker}>
-                <Ionicons name="medical" size={9} color="#FFFFFF" />
-              </View>
+              <MapPlaceMarker hospital={item.hospital} />
             </Marker>
           ))}
         </MapView>
@@ -333,13 +337,6 @@ const styles = StyleSheet.create({
   },
   map: {
     flex: 1,
-  },
-  marker: {
-    backgroundColor: '#0EA5E9',
-    padding: 2,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#FFFFFF',
   },
   recenterButton: {
     position: 'absolute',
