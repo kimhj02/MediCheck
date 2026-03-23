@@ -49,6 +49,9 @@ export default function RootLayout() {
           headerStyle: { backgroundColor: '#0EA5E9' },
           headerTintColor: '#FFFFFF',
           headerTitleStyle: { fontWeight: '600' },
+          /** 탭 그룹 라우트명 (tabs)이 뒤로가기 옆에 노출되는 것 방지 */
+          headerBackTitleVisible: false,
+          headerBackTitle: '',
         }}
       >
         <Stack.Screen
