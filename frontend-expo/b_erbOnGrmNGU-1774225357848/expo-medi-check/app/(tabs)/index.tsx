@@ -21,24 +21,13 @@ import { getNearbyHospitals } from '@/lib/api'
 import { NearbyHospital } from '@/types'
 import HospitalCard from '@/components/HospitalCard'
 import { KakaoMapView } from '@/components/KakaoMapView'
+import { RADIUS_OPTIONS, DEFAULT_RADIUS_METERS } from '@/lib/radiusOptions'
+import {
+  PRESET_OKGYE_HEUNGAN_46_LAT,
+  PRESET_OKGYE_HEUNGAN_46_LNG,
+} from '@/lib/presetTestLocation'
 
 const { height } = Dimensions.get('window')
-
-/**
- * 시뮬레이터·DB 테스트용 고정 좌표
- * 경상북도 구미시 옥계동 흥안로 46 부근 (OpenStreetMap 흥안로 옥계 구간 중심 근사)
- * iOS 시뮬레이터: Features → Location → Custom Location 에 동일 위도/경도 입력 가능
- */
-const PRESET_OKGYE_HEUNGAN_46_LAT = 36.14715
-const PRESET_OKGYE_HEUNGAN_46_LNG = 128.41799
-
-const RADIUS_OPTIONS = [
-  { value: 3000, label: '3km' },
-  { value: 10000, label: '10km' },
-  { value: 15000, label: '15km' },
-  { value: 20000, label: '20km' },
-  { value: 50000, label: '50km' },
-] as const
 
 function coordsToLocation(lat: number, lng: number): Location.LocationObject {
   return {
@@ -69,7 +58,7 @@ export default function MapScreen() {
   const [selectedHospital, setSelectedHospital] = useState<NearbyHospital | null>(null)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [locating, setLocating] = useState(false)
-  const [radiusMeters, setRadiusMeters] = useState(15000)
+  const [radiusMeters, setRadiusMeters] = useState(DEFAULT_RADIUS_METERS)
 
   const applyLocation = useCallback((loc: Location.LocationObject) => {
     setErrorMsg(null)
