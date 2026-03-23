@@ -23,7 +23,7 @@ import { getNearbyHospitals } from '@/lib/api'
 import { NearbyHospital } from '@/types'
 import HospitalCard from '@/components/HospitalCard'
 import { MapPlaceMarker } from '@/components/MapPlaceMarker'
-import { KakaoMapView } from '@/components/KakaoMapView'
+import { KakaoMapView, type KakaoMapViewHandle } from '@/components/KakaoMapView'
 import { RADIUS_OPTIONS, DEFAULT_RADIUS_METERS } from '@/lib/radiusOptions'
 import {
   PRESET_OKGYE_HEUNGAN_46_LAT,
@@ -35,6 +35,15 @@ const { height } = Dimensions.get('window')
 
 /** FlatList scrollToIndex용 대략적 행 높이(카드+margin) — onScrollToIndexFailed 시에도 사용 */
 const ESTIMATED_HOSPITAL_LIST_ROW = 200
+
+/** 네이티브 MapView 줌 한계 (위·경도 델타) */
+const MAP_MIN_LAT_DELTA = 0.0007
+const MAP_MAX_LAT_DELTA = 0.85
+/** 버튼 줌 애니메이션 (ms) — 짧으면 뚝 끊기는 느낌이 나서 여유 있게 둠 */
+const MAP_ZOOM_ANIM_MS = 580
+/** 한 번 탭당 델타 변화 비율 (작을수록 한 단계가 작아져 더 자연스러움) */
+const MAP_ZOOM_IN_FACTOR = 0.78
+const MAP_ZOOM_OUT_FACTOR = 1.32
 
 function coordsToLocation(lat: number, lng: number): Location.LocationObject {
   return {
@@ -60,6 +69,8 @@ export default function MapScreen() {
   const insets = useSafeAreaInsets()
   const useKakaoMap = kakaoMapAppKey.trim().length > 0
   const mapRef = useRef<MapView>(null)
+  const kakaoMapRef = useRef<KakaoMapViewHandle>(null)
+  const lastRegionRef = useRef<Region | null>(null)
   const hospitalListRef = useRef<FlatList<NearbyHospital>>(null)
   /** 마커 → 상세 진입 후 복귀 시에만 리스트 스크롤 */
   const pendingListScrollRef = useRef(false)
@@ -82,6 +93,7 @@ export default function MapScreen() {
       longitudeDelta: 0.05,
     }
     setRegion(next)
+    lastRegionRef.current = next
     if (!useKakaoMap) {
       requestAnimationFrame(() => {
         mapRef.current?.animateToRegion(next, 500)
@@ -185,6 +197,38 @@ export default function MapScreen() {
     fetchGpsLocation()
   }, [fetchGpsLocation])
 
+  const handleZoomIn = useCallback(() => {
+    if (useKakaoMap) {
+      kakaoMapRef.current?.zoomIn()
+      return
+    }
+    const r = lastRegionRef.current
+    if (!r || !mapRef.current) return
+    const next: Region = {
+      ...r,
+      latitudeDelta: Math.max(r.latitudeDelta * MAP_ZOOM_IN_FACTOR, MAP_MIN_LAT_DELTA),
+      longitudeDelta: Math.max(r.longitudeDelta * MAP_ZOOM_IN_FACTOR, MAP_MIN_LAT_DELTA),
+    }
+    lastRegionRef.current = next
+    mapRef.current.animateToRegion(next, MAP_ZOOM_ANIM_MS)
+  }, [useKakaoMap])
+
+  const handleZoomOut = useCallback(() => {
+    if (useKakaoMap) {
+      kakaoMapRef.current?.zoomOut()
+      return
+    }
+    const r = lastRegionRef.current
+    if (!r || !mapRef.current) return
+    const next: Region = {
+      ...r,
+      latitudeDelta: Math.min(r.latitudeDelta * MAP_ZOOM_OUT_FACTOR, MAP_MAX_LAT_DELTA),
+      longitudeDelta: Math.min(r.longitudeDelta * MAP_ZOOM_OUT_FACTOR, MAP_MAX_LAT_DELTA),
+    }
+    lastRegionRef.current = next
+    mapRef.current.animateToRegion(next, MAP_ZOOM_ANIM_MS)
+  }, [useKakaoMap])
+
   const handleUsePresetOkgye = useCallback(() => {
     applyLocation(
       coordsToLocation(PRESET_OKGYE_HEUNGAN_46_LAT, PRESET_OKGYE_HEUNGAN_46_LNG)
@@ -231,6 +275,7 @@ export default function MapScreen() {
     <View style={styles.container}>
       {useKakaoMap ? (
         <KakaoMapView
+          ref={kakaoMapRef}
           appKey={kakaoMapAppKey}
           centerLat={region.latitude}
           centerLng={region.longitude}
@@ -243,6 +288,9 @@ export default function MapScreen() {
           ref={mapRef}
           style={styles.map}
           initialRegion={region}
+          onRegionChangeComplete={(r) => {
+            lastRegionRef.current = r
+          }}
           showsUserLocation
           showsMyLocationButton={false}
           mapType="standard"
@@ -269,23 +317,43 @@ export default function MapScreen() {
         </MapView>
       )}
 
-      <TouchableOpacity
+      <View
         style={[
-          styles.recenterButton,
-          {
-            top: 8,
-            right: insets.right + 10,
-          },
+          styles.mapControlsColumn,
+          { top: 8, right: insets.right + 10 },
         ]}
-        onPress={handleRecenter}
-        disabled={locating}
+        pointerEvents="box-none"
       >
-        {locating ? (
-          <ActivityIndicator size="small" color="#0EA5E9" />
-        ) : (
-          <Ionicons name="locate" size={22} color="#0EA5E9" />
-        )}
-      </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.mapControlBtn}
+          onPress={handleZoomIn}
+          accessibilityRole="button"
+          accessibilityLabel="지도 확대"
+        >
+          <Ionicons name="add" size={26} color="#0EA5E9" />
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.mapControlBtn}
+          onPress={handleZoomOut}
+          accessibilityRole="button"
+          accessibilityLabel="지도 축소"
+        >
+          <Ionicons name="remove" size={26} color="#0EA5E9" />
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.mapControlBtn}
+          onPress={handleRecenter}
+          disabled={locating}
+          accessibilityRole="button"
+          accessibilityLabel="현재 위치로 이동"
+        >
+          {locating ? (
+            <ActivityIndicator size="small" color="#0EA5E9" />
+          ) : (
+            <Ionicons name="locate" size={22} color="#0EA5E9" />
+          )}
+        </TouchableOpacity>
+      </View>
 
       <View style={styles.bottomSheet}>
         <View style={styles.handle} />
@@ -388,9 +456,14 @@ const styles = StyleSheet.create({
   map: {
     flex: 1,
   },
-  recenterButton: {
+  mapControlsColumn: {
     position: 'absolute',
     zIndex: 10,
+    flexDirection: 'column',
+    gap: 8,
+    alignItems: 'center',
+  },
+  mapControlBtn: {
     width: 48,
     height: 48,
     borderRadius: 24,

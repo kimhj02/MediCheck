@@ -1,4 +1,12 @@
-import React, { useMemo, useRef, useEffect, useState, useCallback } from 'react'
+import React, {
+  useMemo,
+  useRef,
+  useEffect,
+  useState,
+  useCallback,
+  forwardRef,
+  useImperativeHandle,
+} from 'react'
 import { StyleSheet, View, Text, ActivityIndicator, ScrollView } from 'react-native'
 import { WebView } from 'react-native-webview'
 import Constants from 'expo-constants'
@@ -27,6 +35,19 @@ type Props = {
   onMarkerPress: (item: NearbyHospital) => void
 }
 
+/** RN 쪽 확대/축소 버튼에서 호출 */
+export type KakaoMapViewHandle = {
+  zoomIn: () => void
+  zoomOut: () => void
+}
+
+const KAKAO_LEVEL_MIN = 1
+const KAKAO_LEVEL_MAX = 14
+
+/** 카카오 setLevel 두 번째 인자 animate 지원 버전 대응 (미지원 시 한 인자만 사용) */
+const ZOOM_IN_JS = `(function(){try{var m=window.kakaoMap;if(m&&window.kakao&&window.kakao.maps){var L=m.getLevel(),n=Math.max(${KAKAO_LEVEL_MIN},L-1);try{m.setLevel(n,{animate:true});}catch(e1){m.setLevel(n);}}}catch(e){}true;})();`
+const ZOOM_OUT_JS = `(function(){try{var m=window.kakaoMap;if(m&&window.kakao&&window.kakao.maps){var L=m.getLevel(),n=Math.min(${KAKAO_LEVEL_MAX},L+1);try{m.setLevel(n,{animate:true});}catch(e1){m.setLevel(n);}}}catch(e){}true;})();`
+
 /**
  * 카카오맵 JavaScript API v2 + MarkerClusterer (WebView)
  * 카카오 콘솔: 플랫폼 Web → 사이트 도메인 = `getKakaoMapBaseUrl()` (기본 https://localhost)
@@ -34,14 +55,17 @@ type Props = {
  * 참고: 로드맵 타일에 포함된 기본 POI(병원·상점 아이콘/이름)는 JS API로 끄는 공식 옵션이 없어
  * 앱 마커와 겹칠 수 있습니다. 완화하려면 위성맵 등 타입 전환 UI를 두거나, 네이티브 MapView 분기 사용을 검토하세요.
  */
-export function KakaoMapView({
-  appKey,
-  centerLat,
-  centerLng,
-  hospitals,
-  zoomLevel = 6,
-  onMarkerPress,
-}: Props) {
+export const KakaoMapView = forwardRef<KakaoMapViewHandle, Props>(function KakaoMapView(
+  {
+    appKey,
+    centerLat,
+    centerLng,
+    hospitals,
+    zoomLevel = 6,
+    onMarkerPress,
+  },
+  ref
+) {
   const webBaseUrl = getKakaoMapBaseUrl()
   const webRef = useRef<WebView>(null)
   const [mapReady, setMapReady] = useState(false)
@@ -53,6 +77,15 @@ export function KakaoMapView({
   useEffect(() => {
     mapReadyRef.current = mapReady
   }, [mapReady])
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      zoomIn: () => webRef.current?.injectJavaScript(ZOOM_IN_JS),
+      zoomOut: () => webRef.current?.injectJavaScript(ZOOM_OUT_JS),
+    }),
+    []
+  )
 
   const pins: KakaoMapHospitalPin[] = useMemo(
     () =>
@@ -197,7 +230,7 @@ export function KakaoMapView({
       />
     </View>
   )
-}
+})
 
 const styles = StyleSheet.create({
   wrap: {
