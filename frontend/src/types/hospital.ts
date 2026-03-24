@@ -28,6 +28,15 @@ export interface HospitalEvaluationSummary {
   asmGrd24: string | null
 }
 
+export interface HospitalTop5Summary {
+  crtrYm: string | null
+  diseaseNm1: string | null
+  diseaseNm2: string | null
+  diseaseNm3: string | null
+  diseaseNm4: string | null
+  diseaseNm5: string | null
+}
+
 export interface Hospital {
   id: number
   name: string
@@ -51,6 +60,9 @@ export interface Hospital {
   reviewCount: number | null
   /** 심평원 병원평가정보 (있으면 객체, 없으면 null) */
   evaluation: HospitalEvaluationSummary | null
+
+  /** 심평원 병원진료정보 Top5 (있으면 객체, 없으면 null) */
+  top5: HospitalTop5Summary | null
 }
 
 export interface NearbyHospital {

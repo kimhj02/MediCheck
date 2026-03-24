@@ -1,0 +1,19 @@
+# Dependencies
+node_modules/
+
+# Expo
+.expo/
+dist/
+web-build/
+
+# Env (예시는 커밋, 로컬 비밀은 제외)
+.env
+.env.local
+.env.*.local
+
+# Debug / OS
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+.DS_Store
+*.tsbuildinfo

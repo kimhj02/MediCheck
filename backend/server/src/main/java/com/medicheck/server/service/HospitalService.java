@@ -2,10 +2,13 @@ package com.medicheck.server.service;
 
 import com.medicheck.server.domain.entity.Hospital;
 import com.medicheck.server.domain.entity.HospitalEvaluation;
+import com.medicheck.server.domain.entity.HospitalClinicTop5;
 import com.medicheck.server.domain.repository.HospitalEvaluationRepository;
+import com.medicheck.server.domain.repository.HospitalClinicTop5Repository;
 import com.medicheck.server.domain.repository.HospitalRepository;
 import com.medicheck.server.domain.repository.HospitalSpecification;
 import com.medicheck.server.dto.HospitalEvaluationSummary;
+import com.medicheck.server.dto.HospitalTop5Summary;
 import com.medicheck.server.dto.HospitalResponse;
 import com.medicheck.server.dto.NearbyHospitalResponse;
 import com.medicheck.server.dto.ReviewSummary;
@@ -33,6 +36,7 @@ public class HospitalService {
     private final HospitalRepository hospitalRepository;
     private final HospitalReviewService reviewService;
     private final HospitalEvaluationRepository hospitalEvaluationRepository;
+    private final HospitalClinicTop5Repository hospitalClinicTop5Repository;
     /** 근처 병원 조회 시 한 번에 반환할 최대 개수 (일단 500개로 상한 설정). */
     private static final int NEARBY_MAX_RESULTS = 500;
     /** 근처 병원 조회에서 허용할 최대 반경 (미터) — 예: 50km */
@@ -78,6 +82,15 @@ public class HospitalService {
                 HospitalEvaluationSummary evalDto = HospitalEvaluationSummary.from(evOpt.get());
                 hr = hr.toBuilder()
                         .evaluation(evalDto)
+                        .build();
+            }
+
+            // 병원진료정보(Top5) 요약
+            Optional<HospitalClinicTop5> top5Opt = hospitalClinicTop5Repository.findByHospital_Id(id);
+            if (top5Opt.isPresent()) {
+                HospitalTop5Summary top5Dto = HospitalTop5Summary.from(top5Opt.get());
+                hr = hr.toBuilder()
+                        .top5(top5Dto)
                         .build();
             }
             return hr;
@@ -142,6 +155,10 @@ public class HospitalService {
         Map<Long, HospitalEvaluationSummary> evaluationMap = evaluations.stream()
                 .collect(Collectors.toMap(ev -> ev.getHospital().getId(), HospitalEvaluationSummary::from));
 
+        List<HospitalClinicTop5> top5s = hospitalClinicTop5Repository.findByHospital_IdIn(orderedIds);
+        Map<Long, HospitalTop5Summary> top5Map = top5s.stream()
+                .collect(Collectors.toMap(t -> t.getHospital().getId(), HospitalTop5Summary::from));
+
         return orderedIds.stream()
                 .map(id -> {
                     Hospital h = idToHospital.get(id);
@@ -158,6 +175,10 @@ public class HospitalService {
                     HospitalEvaluationSummary evalSummary = evaluationMap.get(id);
                     if (evalSummary != null) {
                         hr = hr.toBuilder().evaluation(evalSummary).build();
+                    }
+                    HospitalTop5Summary top5Summary = top5Map.get(id);
+                    if (top5Summary != null) {
+                        hr = hr.toBuilder().top5(top5Summary).build();
                     }
                     return NearbyHospitalResponse.builder()
                             .hospital(hr)

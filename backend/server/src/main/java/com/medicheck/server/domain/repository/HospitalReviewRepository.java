@@ -15,6 +15,8 @@ public interface HospitalReviewRepository extends JpaRepository<HospitalReview, 
 
     Page<HospitalReview> findByHospitalIdOrderByCreatedAtDesc(Long hospitalId, Pageable pageable);
 
+    Page<HospitalReview> findByUser_IdOrderByUpdatedAtDesc(Long userId, Pageable pageable);
+
     @Query("SELECT r.hospital.id, AVG(r.rating), COUNT(r) FROM HospitalReview r WHERE r.hospital.id IN :hospitalIds GROUP BY r.hospital.id")
     List<Object[]> findAverageRatingAndCountByHospitalIds(List<Long> hospitalIds);
 }

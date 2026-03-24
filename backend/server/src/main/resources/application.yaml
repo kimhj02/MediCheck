@@ -2,7 +2,8 @@ spring:
   datasource:
     url: jdbc:mysql://localhost:3306/medi_check?serverTimezone=Asia/Seoul&characterEncoding=UTF-8
     username: root
-    password: za8954sw # 본인 MySQL 비번으로 수정!
+    # 저장소에 비밀번호를 두지 않음. 로컬/CI/운영 모두 환경변수 DB_PASSWORD 설정 (아래 README·.env.example 참고)
+    password: ${DB_PASSWORD}
     driver-class-name: com.mysql.cj.jdbc.Driver
   
   jpa:
@@ -67,6 +68,10 @@ hira:
   # 병원평가정보서비스 (getHospAsmInfo1). 로컬: application-local.yaml 에 service-key 추가 가능
   eval:
     base-url: https://apis.data.go.kr/B551182/hospAsmInfoService1
+    service-key: ${HIRA_SERVICE_KEY:}
+  # 병원진료정보조회서비스 (getClinicTop5List1)
+  diag:
+    base-url: https://apis.data.go.kr/B551182/hospDiagInfoService1
     service-key: ${HIRA_SERVICE_KEY:}
 
 # Swagger UI: 태그를 이름(01. 02. …) 기준 알파벳·숫자 순으로 정렬 → 1→2→3→4→5→6 순서로 표시

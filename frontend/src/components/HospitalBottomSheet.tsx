@@ -50,8 +50,16 @@ export function HospitalBottomSheet({
       : null
   const hasEvaluation = !!h.evaluation
   const evaluationScore = getEvaluationStarScore(h.evaluation ?? undefined)
+  const top5 = h.top5
+  const top5Diseases = top5
+    ? [top5.diseaseNm1, top5.diseaseNm2, top5.diseaseNm3, top5.diseaseNm4, top5.diseaseNm5].filter(
+        (d): d is string => !!d && d.trim().length > 0
+      )
+    : []
+  const hasTop5 = top5Diseases.length > 0
   const typeParts = [h.department]
   if (hasEvaluation) typeParts.push('심평원 평가정보')
+  if (hasTop5) typeParts.push('진료 Top5')
   if (reviewText) typeParts.push(reviewText)
   const typeAndReview = typeParts.filter(Boolean).join(' · ') || '병원'
 
@@ -202,6 +210,26 @@ export function HospitalBottomSheet({
               <p className="text-xs text-emerald-700">
                 심평원 병원평가정보가 있는 병원입니다.
               </p>
+            )}
+            {hasTop5 && (
+              <div className="pt-2">
+                <div className="text-xs font-medium text-gray-700 mb-1">
+                  심평원 진료 Top5
+                  {top5?.crtrYm ? (
+                    <span className="text-xs text-gray-400 ml-2">기준 {top5.crtrYm}</span>
+                  ) : null}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {top5Diseases.map((d, idx) => (
+                    <span
+                      key={`${d}-${idx}`}
+                      className="inline-flex items-center px-2 py-1 rounded-lg border border-sky-100 bg-sky-50 text-sky-700 text-xs font-medium"
+                    >
+                      {idx + 1}. {d}
+                    </span>
+                  ))}
+                </div>
+              </div>
             )}
             <p className="text-xs text-gray-400">
               ※ 진료 시간은 병원에 문의해 주세요
