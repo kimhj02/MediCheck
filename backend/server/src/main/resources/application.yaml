@@ -8,7 +8,8 @@ spring:
   
   jpa:
     hibernate:
-      ddl-auto: update
+      # Flyway(db/migration)가 스키마 변경의 단일 소스. Hibernate는 검증만 수행.
+      ddl-auto: validate
     show-sql: true
     properties:
       hibernate:
