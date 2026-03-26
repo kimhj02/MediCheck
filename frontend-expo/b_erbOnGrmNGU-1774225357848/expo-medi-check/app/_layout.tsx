@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { View, ActivityIndicator, StyleSheet } from 'react-native'
 import { Stack } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
+import * as WebBrowser from 'expo-web-browser'
 import * as Font from 'expo-font'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useAuthStore } from '@/store/authStore'
@@ -12,6 +13,8 @@ const IONICONS_MAP = {
 }
 
 const queryClient = new QueryClient()
+
+WebBrowser.maybeCompleteAuthSession()
 
 export default function RootLayout() {
   const loadAuth = useAuthStore((state) => state.loadAuth)

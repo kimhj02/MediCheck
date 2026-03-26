@@ -30,6 +30,11 @@ module.exports = {
        */
       kakaoMapBaseUrl:
         process.env.EXPO_PUBLIC_KAKAO_MAP_BASE_URL || 'https://localhost',
+      /** 카카오 로그인(웹 Vite와 동일): REST API 키. 카카오 콘솔에 Redirect URI 등록 필요 */
+      kakaoRestApiKey:
+        process.env.EXPO_PUBLIC_KAKAO_REST_API_KEY ||
+        process.env.VITE_KAKAO_REST_API_KEY ||
+        '',
     },
   },
 }

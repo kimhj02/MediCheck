@@ -12,6 +12,8 @@ import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
+import org.hibernate.annotations.OnDelete;
+import org.hibernate.annotations.OnDeleteAction;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -34,6 +36,7 @@ public class HospitalEvaluation {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "hospital_id", nullable = false, unique = true)
+    @OnDelete(action = OnDeleteAction.CASCADE)
     private Hospital hospital;
 
     /** 암호화된 요양기호 (API 응답 기준) */
