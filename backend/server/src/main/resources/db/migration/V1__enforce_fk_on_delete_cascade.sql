@@ -1,5 +1,6 @@
 -- 기존 스키마(FK 제약 이름/옵션 불명)를 안전하게 교정하기 위해
--- 테이블/참조 테이블 존재 시에만 FK를 교체하여 ON DELETE CASCADE를 강제한다.
+-- FK를 교체하여 ON DELETE CASCADE를 강제한다.
+-- 자식/참조 테이블이 없으면 마이그레이션을 실패시켜(Fail-fast) 누락 스키마를 드러낸다.
 
 DROP PROCEDURE IF EXISTS ensure_fk_on_delete_cascade;
 
@@ -31,7 +32,24 @@ proc: BEGIN
        AND TABLE_NAME = p_ref_table_name;
 
     IF v_table_exists = 0 OR v_ref_table_exists = 0 THEN
-        LEAVE proc;
+        -- MESSAGE_TEXT는 MySQL에서 128자 제한이 있어 LEFT로 맞춤(테이블·제약 이름 우선).
+        SET @err_msg = LEFT(CONCAT(
+            'Expected tables for FK cascade not found: child=',
+            p_table_name,
+            '(exists=',
+            v_table_exists,
+            ') ref=',
+            p_ref_table_name,
+            '(exists=',
+            v_ref_table_exists,
+            ') cols=',
+            p_column_name,
+            '->',
+            p_ref_column_name,
+            ' constraint=',
+            p_constraint_name
+        ), 128);
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = @err_msg;
     END IF;
 
     SELECT kcu.CONSTRAINT_NAME, rc.DELETE_RULE
