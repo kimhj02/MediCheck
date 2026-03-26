@@ -13,8 +13,45 @@ import {
 import { useRouter } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import { useMutation } from '@tanstack/react-query'
+import Constants from 'expo-constants'
+import * as AuthSession from 'expo-auth-session'
+import * as WebBrowser from 'expo-web-browser'
 import { useAuthStore } from '@/store/authStore'
-import { login, getMe } from '@/lib/api'
+import { login, getMe, loginWithKakao } from '@/lib/api'
+
+type Extra = {
+  kakaoRestApiKey?: string
+}
+
+function getKakaoRestApiKey(): string {
+  const extra = Constants.expoConfig?.extra as Extra | undefined
+  return (extra?.kakaoRestApiKey ?? '').trim()
+}
+
+/** 카카오 리다이렉트 URL에서 code / error 파싱 (커스텀 스킴 등 URL 생성기 호환) */
+function parseKakaoCallbackUrl(url: string): {
+  code?: string
+  error?: string
+  errorDescription?: string
+} {
+  try {
+    const u = new URL(url)
+    return {
+      code: u.searchParams.get('code') ?? undefined,
+      error: u.searchParams.get('error') ?? undefined,
+      errorDescription: u.searchParams.get('error_description') ?? undefined,
+    }
+  } catch {
+    const q = url.split('?')[1]
+    if (!q) return {}
+    const params = new URLSearchParams(q.split('#')[0])
+    return {
+      code: params.get('code') ?? undefined,
+      error: params.get('error') ?? undefined,
+      errorDescription: params.get('error_description') ?? undefined,
+    }
+  }
+}
 
 export default function LoginScreen() {
   const router = useRouter()
@@ -42,6 +79,66 @@ export default function LoginScreen() {
     },
   })
 
+  const kakaoMutation = useMutation({
+    mutationFn: async () => {
+      const kakaoRestApiKey = getKakaoRestApiKey()
+      if (!kakaoRestApiKey) {
+        throw new Error(
+          '카카오 REST API 키가 없습니다. frontend/.env의 VITE_KAKAO_REST_API_KEY 또는 EXPO_PUBLIC_KAKAO_REST_API_KEY를 설정한 뒤 Metro를 재시작하세요.'
+        )
+      }
+
+      const redirectUri = AuthSession.makeRedirectUri({
+        path: 'oauth/kakao/callback',
+      })
+
+      const authUrl =
+        'https://kauth.kakao.com/oauth/authorize?' +
+        new URLSearchParams({
+          client_id: kakaoRestApiKey,
+          redirect_uri: redirectUri,
+          response_type: 'code',
+        }).toString()
+
+      const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUri)
+
+      if (result.type === 'cancel' || result.type === 'dismiss') {
+        throw new Error('카카오 로그인이 취소되었습니다.')
+      }
+      if (result.type !== 'success') {
+        throw new Error('카카오 로그인을 완료할 수 없습니다.')
+      }
+
+      const { code, error, errorDescription } = parseKakaoCallbackUrl(
+        result.url
+      )
+      if (error) {
+        throw new Error(
+          errorDescription || error || '카카오 인증에 실패했습니다.'
+        )
+      }
+      if (!code) {
+        throw new Error(
+          '카카오 인가 코드가 없습니다. 카카오 콘솔의 Redirect URI가 앱과 동일한지 확인하세요.'
+        )
+      }
+
+      return loginWithKakao(code, redirectUri)
+    },
+    onSuccess: async (data) => {
+      const user = await getMe(data.token)
+      if (!user) {
+        Alert.alert('오류', '사용자 정보를 불러올 수 없습니다.')
+        return
+      }
+      await setAuth(user, data.token)
+      router.back()
+    },
+    onError: (err: Error) => {
+      Alert.alert('카카오 로그인 실패', err.message || '다시 시도해 주세요.')
+    },
+  })
+
   const handleLogin = () => {
     if (!loginId.trim()) {
       Alert.alert('알림', '아이디를 입력해 주세요.')
@@ -53,6 +150,19 @@ export default function LoginScreen() {
     }
     loginMutation.mutate()
   }
+
+  const handleKakaoLogin = () => {
+    if (Platform.OS === 'web') {
+      Alert.alert(
+        '안내',
+        'Expo 웹에서는 카카오 리다이렉트가 제한될 수 있습니다. Vite 웹(frontend) 로그인 또는 iOS/Android 앱을 이용해 주세요.'
+      )
+      return
+    }
+    kakaoMutation.mutate()
+  }
+
+  const kakaoBusy = kakaoMutation.isPending
 
   return (
     <KeyboardAvoidingView
@@ -113,8 +223,16 @@ export default function LoginScreen() {
             )}
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.kakaoButton}>
-            <Text style={styles.kakaoButtonText}>카카오로 로그인</Text>
+          <TouchableOpacity
+            style={[styles.kakaoButton, kakaoBusy && styles.buttonDisabled]}
+            onPress={handleKakaoLogin}
+            disabled={kakaoBusy}
+          >
+            {kakaoBusy ? (
+              <ActivityIndicator color="#3C1E1E" />
+            ) : (
+              <Text style={styles.kakaoButtonText}>카카오로 로그인</Text>
+            )}
           </TouchableOpacity>
         </View>
 
