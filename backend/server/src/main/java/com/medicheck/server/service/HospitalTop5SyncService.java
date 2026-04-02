@@ -9,6 +9,7 @@ import com.medicheck.server.domain.repository.HospitalRepository;
 import com.medicheck.server.domain.repository.HospitalSpecification;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -39,11 +40,16 @@ public class HospitalTop5SyncService {
         if (addressKeyword == null || addressKeyword.isBlank()) return 0;
 
         Specification<Hospital> spec = HospitalSpecification.addressContains(addressKeyword);
-        List<Hospital> hospitals = hospitalRepository.findAll(spec);
+        List<Hospital> hospitals;
+        if (maxSynced != null && maxSynced > 0) {
+            // maxSynced가 지정되면 성공 건수 기준이 아니라 후보 조회 수 자체를 제한해 요청 시간을 예측 가능하게 만든다.
+            hospitals = hospitalRepository.findAll(spec, PageRequest.of(0, maxSynced)).getContent();
+        } else {
+            hospitals = hospitalRepository.findAll(spec);
+        }
 
         int count = 0;
         for (Hospital h : hospitals) {
-            if (maxSynced != null && maxSynced > 0 && count >= maxSynced) break;
             String ykiho = trim(h.getPublicCode(), 500);
             if (ykiho == null || ykiho.isBlank()) continue;
             if (syncOneInternal(ykiho)) {

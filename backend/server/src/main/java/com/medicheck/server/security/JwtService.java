@@ -8,6 +8,8 @@ import org.springframework.stereotype.Service;
 
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.Date;
 
 @Service
@@ -18,7 +20,27 @@ public class JwtService {
 
     public JwtService(JwtProperties props) {
         this.props = props;
-        this.key = Keys.hmacShaKeyFor(props.getSecret().getBytes(StandardCharsets.UTF_8));
+        this.key = hmacKeyFromConfiguredSecret(props.getSecret());
+    }
+
+    /**
+     * JJWT는 HMAC 키를 UTF-8 바이트 기준 최소 256비트(32바이트)를 요구한다.
+     * 그보다 짧은 설정값은 SHA-256으로 32바이트로 확장해 로컬/짧은 JWT_SECRET도 기동 가능하게 한다.
+     * 32바이트 이상인 경우 기존과 동일하게 원문 바이트를 그대로 사용한다.
+     */
+    private static SecretKey hmacKeyFromConfiguredSecret(String secret) {
+        if (secret == null || secret.isBlank()) {
+            throw new IllegalArgumentException("app.jwt.secret / JWT_SECRET must be set and non-empty.");
+        }
+        byte[] keyBytes = secret.getBytes(StandardCharsets.UTF_8);
+        if (keyBytes.length < 32) {
+            try {
+                keyBytes = MessageDigest.getInstance("SHA-256").digest(keyBytes);
+            } catch (NoSuchAlgorithmException e) {
+                throw new IllegalStateException(e);
+            }
+        }
+        return Keys.hmacShaKeyFor(keyBytes);
     }
 
     public String createToken(String loginId, Long userId) {
