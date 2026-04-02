@@ -90,7 +90,9 @@ public class HospitalTop5SyncService {
                 normalized, DEFAULT_PAGE_NO, DEFAULT_NUM_OF_ROWS
         );
         if (item == null) {
-            log.info("Top5 1건 동기화 스킵: 공공데이터 응답 없음 ykiho={}, hospitalId={}", normalized, hospital.getId());
+            long deleted = top5Repository.deleteByHospital_Id(hospital.getId());
+            log.info("Top5 1건 동기화 스킵: 공공데이터 응답 없음 ykiho={}, hospitalId={}, staleHospitalClinicTop5Deleted={}",
+                    normalized, hospital.getId(), deleted);
             return false;
         }
 
