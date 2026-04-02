@@ -55,7 +55,14 @@ public class HiraClinicTop5Client {
             String raw = response.getBody();
 
             if (raw == null || raw.isBlank()) return null;
-            return HiraClinicTop5Item.fromXml(raw);
+            HiraClinicTop5Item parsed = HiraClinicTop5Item.fromXml(raw);
+            if (parsed == null) {
+                String compact = raw.replaceAll("\\s+", " ");
+                if (compact.length() > 400) compact = compact.substring(0, 400) + "...";
+                log.warn("HIRA getClinicTop5List1 파싱 결과 없음 ykiho={}, status={}, raw={}",
+                        ykiho, response.getStatusCode().value(), compact);
+            }
+            return parsed;
         } catch (Exception e) {
             log.error("HIRA getClinicTop5List1 호출 실패 ykiho={}", ykiho, e);
             return null;

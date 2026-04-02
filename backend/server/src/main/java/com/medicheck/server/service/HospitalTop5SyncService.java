@@ -74,16 +74,25 @@ public class HospitalTop5SyncService {
 
     private boolean syncOneInternal(String ykiho) {
         String normalized = trim(ykiho, 500);
-        if (normalized == null || normalized.isBlank()) return false;
+        if (normalized == null || normalized.isBlank()) {
+            log.info("Top5 1건 동기화 스킵: ykiho 비어 있음");
+            return false;
+        }
 
         Optional<Hospital> hospitalOpt = hospitalRepository.findByPublicCode(normalized);
-        if (hospitalOpt.isEmpty()) return false;
+        if (hospitalOpt.isEmpty()) {
+            log.info("Top5 1건 동기화 스킵: DB 병원 미존재 ykiho={}", normalized);
+            return false;
+        }
         Hospital hospital = hospitalOpt.get();
 
         HiraClinicTop5Item item = clinicTop5Client.getClinicTop5List1(
                 normalized, DEFAULT_PAGE_NO, DEFAULT_NUM_OF_ROWS
         );
-        if (item == null) return false;
+        if (item == null) {
+            log.info("Top5 1건 동기화 스킵: 공공데이터 응답 없음 ykiho={}, hospitalId={}", normalized, hospital.getId());
+            return false;
+        }
 
         HospitalClinicTop5 newData = HospitalClinicTop5.builder()
                 .hospital(hospital)

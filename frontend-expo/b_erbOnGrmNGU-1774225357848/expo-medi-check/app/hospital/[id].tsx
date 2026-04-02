@@ -23,6 +23,7 @@ import {
 import ReviewModal from '@/components/ReviewModal'
 import ReviewCard from '@/components/ReviewCard'
 import { HiraEvaluationSection } from '@/components/HiraEvaluationSection'
+import { HospitalTop5Section } from '@/components/HospitalTop5Section'
 import {
   getEvaluationStarScore,
   getHiraEvaluationRows,
@@ -105,16 +106,6 @@ export default function HospitalDetailScreen() {
       </View>
     )
   }
-
-  const top5Diseases = hospital.top5
-    ? [
-        hospital.top5.diseaseNm1,
-        hospital.top5.diseaseNm2,
-        hospital.top5.diseaseNm3,
-        hospital.top5.diseaseNm4,
-        hospital.top5.diseaseNm5,
-      ].filter(Boolean)
-    : []
 
   const hiraEval = hospital.evaluation
   const hiraStarScore = getEvaluationStarScore(hiraEval)
@@ -220,18 +211,7 @@ export default function HospitalDetailScreen() {
           </View>
         </View>
 
-        {top5Diseases.length > 0 && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>주요 진료 질환 TOP 5</Text>
-            <View style={styles.tags}>
-              {top5Diseases.map((disease, index) => (
-                <View key={index} style={styles.tag}>
-                  <Text style={styles.tagText}>{disease}</Text>
-                </View>
-              ))}
-            </View>
-          </View>
-        )}
+        <HospitalTop5Section top5={hospital.top5} />
 
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
@@ -405,22 +385,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#475569',
     lineHeight: 20,
-  },
-  tags: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  tag: {
-    backgroundColor: '#E0F2FE',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-  },
-  tagText: {
-    fontSize: 13,
-    color: '#0369A1',
-    fontWeight: '500',
   },
   emptyReviews: {
     alignItems: 'center',
