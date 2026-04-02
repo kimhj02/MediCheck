@@ -18,7 +18,24 @@ public class JwtService {
 
     public JwtService(JwtProperties props) {
         this.props = props;
-        this.key = Keys.hmacShaKeyFor(props.getSecret().getBytes(StandardCharsets.UTF_8));
+        this.key = hmacKeyFromConfiguredSecret(props.getSecret());
+    }
+
+    /**
+     * JJWT는 HMAC 키를 UTF-8 바이트 기준 최소 256비트(32바이트)를 요구한다.
+     * JwtSecretValidator와 동일하게 UTF-8 기준 32바이트 미만 시크릿은 허용하지 않는다.
+     */
+    private static SecretKey hmacKeyFromConfiguredSecret(String secret) {
+        if (secret == null || secret.isBlank()) {
+            throw new IllegalArgumentException("app.jwt.secret / JWT_SECRET must be set and non-empty.");
+        }
+        byte[] keyBytes = secret.getBytes(StandardCharsets.UTF_8);
+        if (keyBytes.length < 32) {
+            throw new IllegalArgumentException(
+                    "JWT_SECRET must be at least 32 bytes in UTF-8. currentBytes=" + keyBytes.length
+            );
+        }
+        return Keys.hmacShaKeyFor(keyBytes);
     }
 
     public String createToken(String loginId, Long userId) {
