@@ -76,36 +76,4 @@ public final class HospitalSpecification {
     public static Specification<Hospital> withFilters(String keyword, String department) {
         return hasKeyword(keyword).and(hasDepartment(department));
     }
-
-    /**
-     * 진료과 칩(내과·외과 등): 병원명 또는 종별명 문자열에 키워드가 포함되는지 검사합니다.
-     * 검색 탭 주변 모드와 동일하게 「외과」는 정형·성형·신경·흉부외과를 제외합니다.
-     */
-    public static Specification<Hospital> hasClinicalDepartmentFilter(String clinical) {
-        if (!StringUtils.hasText(clinical) || "전체".equals(clinical.trim())) {
-            return (root, query, cb) -> cb.conjunction();
-        }
-        String raw = clinical.trim();
-        String pattern = "%" + escapeForLike(raw) + "%";
-        String patternLower = pattern.toLowerCase();
-        return (root, query, cb) -> {
-            Predicate inName = cb.like(cb.lower(root.get("name")), patternLower, LIKE_ESCAPE);
-            Predicate inDeptCol = cb.like(cb.lower(root.get("department")), patternLower, LIKE_ESCAPE);
-            Predicate base = cb.or(inName, inDeptCol);
-            if (!"외과".equalsIgnoreCase(raw)) {
-                return base;
-            }
-            Predicate exclude = cb.or(
-                    cb.like(cb.lower(root.get("name")), "%정형외과%", LIKE_ESCAPE),
-                    cb.like(cb.lower(root.get("name")), "%성형외과%", LIKE_ESCAPE),
-                    cb.like(cb.lower(root.get("name")), "%신경외과%", LIKE_ESCAPE),
-                    cb.like(cb.lower(root.get("name")), "%흉부외과%", LIKE_ESCAPE),
-                    cb.like(cb.lower(root.get("department")), "%정형외과%", LIKE_ESCAPE),
-                    cb.like(cb.lower(root.get("department")), "%성형외과%", LIKE_ESCAPE),
-                    cb.like(cb.lower(root.get("department")), "%신경외과%", LIKE_ESCAPE),
-                    cb.like(cb.lower(root.get("department")), "%흉부외과%", LIKE_ESCAPE)
-            );
-            return cb.and(base, cb.not(exclude));
-        };
-    }
 }
