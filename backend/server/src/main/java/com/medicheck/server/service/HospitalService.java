@@ -84,17 +84,21 @@ public class HospitalService {
         if (tokens.isEmpty()) {
             return Page.empty(pageable);
         }
-        List<String> safeTokens = new ArrayList<>();
-        LinkedHashSet<Long> unionIds = new LinkedHashSet<>();
+        LinkedHashSet<String> uniqueSafeTokens = new LinkedHashSet<>();
         for (String token : tokens) {
             String safe = sanitizeLikeSubstring(token);
             if (safe.length() < 2) {
                 continue;
             }
-            safeTokens.add(safe);
-            unionIds.addAll(hospitalClinicTop5Repository.findHospitalIdsWithDiseaseNameContaining(safe));
+            uniqueSafeTokens.add(safe);
         }
-        if (unionIds.isEmpty() || safeTokens.isEmpty()) {
+        if (uniqueSafeTokens.isEmpty()) {
+            return Page.empty(pageable);
+        }
+        List<String> safeTokens = new ArrayList<>(uniqueSafeTokens);
+        List<Long> unionIds =
+                hospitalClinicTop5Repository.findHospitalIdsWithDiseaseNameContainingAny(safeTokens);
+        if (unionIds.isEmpty()) {
             return Page.empty(pageable);
         }
 
