@@ -64,6 +64,9 @@ export default function SymptomHospitalsScreen() {
     hasNextPage,
     isLoading,
     isFetchingNextPage,
+    isError,
+    error,
+    refetch,
   } = useInfiniteQuery({
     queryKey: ['hospitalsBySymptom', symptom, coords?.lat, coords?.lng],
     initialPageParam: 0,
@@ -146,9 +149,11 @@ export default function SymptomHospitalsScreen() {
               ? '위치 확인 중…'
               : listLoading
                 ? '검색 중…'
-                : totalHits > 0
-                  ? `검색 결과 ${totalHits}건`
-                  : '검색 결과 0건'}
+                : isError
+                  ? '검색 중 오류가 발생했습니다. 다시 시도해 주세요.'
+                  : totalHits > 0
+                    ? `검색 결과 ${totalHits}건`
+                    : '검색 결과 0건'}
         </Text>
       </View>
 
@@ -164,6 +169,21 @@ export default function SymptomHospitalsScreen() {
       ) : waitingCoords || listLoading ? (
         <View style={styles.centered}>
           <ActivityIndicator size="large" color="#0EA5E9" />
+        </View>
+      ) : isError ? (
+        <View style={styles.centered}>
+          <Ionicons name="warning-outline" size={48} color="#F97316" />
+          <Text style={styles.emptyText}>
+            데이터를 불러오는 중 오류가 발생했습니다.
+          </Text>
+          {error && (
+            <Text style={styles.emptyText}>{String(error.message ?? '잠시 후 다시 시도해 주세요.')}</Text>
+          )}
+          <TouchableOpacity onPress={() => refetch()}>
+            <Text style={[styles.emptyText, { color: '#0EA5E9', fontWeight: '600' }]}>
+              다시 시도
+            </Text>
+          </TouchableOpacity>
         </View>
       ) : dedupedHospitals.length === 0 ? (
         <View style={styles.centered}>
