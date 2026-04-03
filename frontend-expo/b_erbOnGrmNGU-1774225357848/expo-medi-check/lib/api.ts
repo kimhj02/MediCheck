@@ -117,6 +117,23 @@ export async function getHospitals(params?: {
   return fetchApi(`/hospitals?${searchParams}`)
 }
 
+/** HIRA Top5(진료량 상위 5개 질병명)와 부분 일치하는 병원만 페이지 조회 */
+export async function getHospitalsBySymptom(params: {
+  symptom: string
+  keyword?: string
+  department?: string
+  page?: number
+  size?: number
+}): Promise<Page<Hospital>> {
+  const searchParams = new URLSearchParams()
+  searchParams.set('symptom', params.symptom)
+  if (params.keyword) searchParams.set('keyword', params.keyword)
+  if (params.department) searchParams.set('department', params.department)
+  if (params.page !== undefined) searchParams.set('page', String(params.page))
+  if (params.size) searchParams.set('size', String(params.size))
+  return fetchApi(`/hospitals/search/symptom?${searchParams}`)
+}
+
 export async function getHospital(id: number): Promise<Hospital> {
   return fetchApi(`/hospitals/${id}`)
 }

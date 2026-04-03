@@ -79,6 +79,27 @@ public class HospitalController {
     }
 
     /**
+     * 증상·질환 키워드로 병원 검색 (HIRA Top5 질병명 기준).
+     * GET /api/hospitals/search/symptom?symptom=두통&keyword=구미&page=0&size=20
+     */
+    @Operation(
+            summary = "증상·질환 기준 병원 검색",
+            description = "병원진료정보 Top5(상위 5개 질병명) 중 하나라도 symptom 토큰과 부분 일치하면 포함됩니다. "
+                    + "공백·쉼표로 여러 토큰을 넣으면 하나라도 매칭되면 포함(OR)합니다. "
+                    + "keyword·department는 기존 목록 검색과 동일한 추가 필터입니다."
+    )
+    @GetMapping("/search/symptom")
+    public ResponseEntity<Page<HospitalResponse>> searchBySymptom(
+            @Parameter(description = "증상 또는 질환 키워드 (예: 두통, 감기)") @RequestParam("symptom") String symptom,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String department,
+            @PageableDefault(size = 20, sort = "name") Pageable pageable
+    ) {
+        Page<HospitalResponse> page = hospitalService.findAllBySymptom(symptom, keyword, department, pageable);
+        return ResponseEntity.ok(page);
+    }
+
+    /**
      * 근처 병원 조회.
      * 사용자의 위치(lat, lng)에서 반경(radiusMeters m) 내 병원을 거리 오름차순으로 반환합니다.
      * 각 항목에 distanceMeters(미터)가 포함됩니다.

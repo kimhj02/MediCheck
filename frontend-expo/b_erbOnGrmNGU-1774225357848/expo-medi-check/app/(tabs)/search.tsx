@@ -147,7 +147,8 @@ export default function SearchScreen() {
     queryFn: ({ pageParam }) =>
       getHospitals({
         keyword: keyword || undefined,
-        department: selectedDepartment === '전체' ? undefined : selectedDepartment,
+        department:
+          selectedDepartment === '전체' ? undefined : selectedDepartment,
         page: pageParam,
         size: 20,
       }),

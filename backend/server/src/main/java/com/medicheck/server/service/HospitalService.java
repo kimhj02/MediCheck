@@ -12,14 +12,18 @@ import com.medicheck.server.dto.HospitalTop5Summary;
 import com.medicheck.server.dto.HospitalResponse;
 import com.medicheck.server.dto.NearbyHospitalResponse;
 import com.medicheck.server.dto.ReviewSummary;
+import com.medicheck.server.util.SymptomKeywordTokenizer;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -54,6 +58,89 @@ public class HospitalService {
         Specification<Hospital> spec =
                 HospitalSpecification.withFilters(keyword, department);
         return hospitalRepository.findAll(spec, pageable).map(HospitalResponse::from);
+    }
+
+    /**
+     * 증상(또는 질환) 키워드로 검색합니다. HIRA 동기화된 병원진료정보 Top5(상위 5개 질병명) 필드와 부분 일치하는 병원만 반환합니다.
+     * 토큰은 공백·쉼표로 나누며, 토큰 하나라도 질병명에 매칭되면 포함(OR)합니다.
+     * keyword·department는 기존 목록 검색과 동일하게 추가 필터로 적용됩니다.
+     */
+    public Page<HospitalResponse> findAllBySymptom(
+            String symptom,
+            String keyword,
+            String department,
+            Pageable pageable
+    ) {
+        if (!StringUtils.hasText(symptom)) {
+            return Page.empty(pageable);
+        }
+        List<String> tokens = SymptomKeywordTokenizer.tokenize(symptom);
+        if (tokens.isEmpty()) {
+            return Page.empty(pageable);
+        }
+        LinkedHashSet<Long> unionIds = new LinkedHashSet<>();
+        for (String token : tokens) {
+            String safe = sanitizeLikeSubstring(token);
+            if (safe.length() < 2) {
+                continue;
+            }
+            unionIds.addAll(hospitalClinicTop5Repository.findHospitalIdsWithDiseaseNameContaining(safe));
+        }
+        if (unionIds.isEmpty()) {
+            return Page.empty(pageable);
+        }
+
+        Specification<Hospital> idIn = (root, query, cb) -> root.get("id").in(unionIds);
+        Specification<Hospital> combined = idIn
+                .and(HospitalSpecification.hasKeyword(keyword))
+                .and(HospitalSpecification.hasDepartment(department));
+
+        Page<Hospital> page = hospitalRepository.findAll(combined, pageable);
+        List<HospitalResponse> content = enrichHospitalResponses(page.getContent());
+        return new PageImpl<>(content, pageable, page.getTotalElements());
+    }
+
+    /** LIKE 패턴에 넣기 전에 %, _, \\ 문자를 제거해 의도치 않은 와일드카드·이스케이프를 막습니다. */
+    private static String sanitizeLikeSubstring(String raw) {
+        if (raw == null) {
+            return "";
+        }
+        return raw.trim().replace("%", "").replace("_", "").replace("\\", "");
+    }
+
+    private List<HospitalResponse> enrichHospitalResponses(List<Hospital> hospitals) {
+        if (hospitals.isEmpty()) {
+            return List.of();
+        }
+        List<Long> ids = hospitals.stream().map(Hospital::getId).toList();
+        Map<Long, ReviewSummary> reviewSummaryMap = reviewService.getReviewSummaryByHospitalIds(ids);
+        List<HospitalEvaluation> evaluations = hospitalEvaluationRepository.findByHospital_IdIn(ids);
+        Map<Long, HospitalEvaluationSummary> evaluationMap = evaluations.stream()
+                .collect(Collectors.toMap(ev -> ev.getHospital().getId(), HospitalEvaluationSummary::from));
+        List<HospitalClinicTop5> top5s = hospitalClinicTop5Repository.findByHospital_IdIn(ids);
+        Map<Long, HospitalTop5Summary> top5Map = top5s.stream()
+                .collect(Collectors.toMap(t -> t.getHospital().getId(), HospitalTop5Summary::from));
+
+        return hospitals.stream().map(h -> {
+            Long id = h.getId();
+            HospitalResponse hr = HospitalResponse.from(h);
+            ReviewSummary rs = reviewSummaryMap.get(id);
+            if (rs != null) {
+                hr = hr.toBuilder()
+                        .averageRating(rs.getAverageRating())
+                        .reviewCount(rs.getReviewCount().intValue())
+                        .build();
+            }
+            HospitalEvaluationSummary es = evaluationMap.get(id);
+            if (es != null) {
+                hr = hr.toBuilder().evaluation(es).build();
+            }
+            HospitalTop5Summary top5 = top5Map.get(id);
+            if (top5 != null) {
+                hr = hr.toBuilder().top5(top5).build();
+            }
+            return hr;
+        }).toList();
     }
 
     /**
