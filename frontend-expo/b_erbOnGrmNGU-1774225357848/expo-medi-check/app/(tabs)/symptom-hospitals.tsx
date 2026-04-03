@@ -128,7 +128,11 @@ export default function SymptomHospitalsScreen() {
             multiline={false}
           />
           {symptom.length > 0 && (
-            <TouchableOpacity onPress={() => setSymptom('')}>
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel="증상 입력 지우기"
+              onPress={() => setSymptom('')}
+            >
               <Ionicons name="close-circle" size={22} color="#94A3B8" />
             </TouchableOpacity>
           )}
