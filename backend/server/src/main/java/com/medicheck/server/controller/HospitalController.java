@@ -80,22 +80,23 @@ public class HospitalController {
 
     /**
      * 증상·질환 키워드로 병원 검색 (HIRA Top5 질병명 기준).
-     * GET /api/hospitals/search/symptom?symptom=두통&keyword=구미&page=0&size=20
+     * GET /api/hospitals/search/symptom?symptom=두통&lat=36.14&lng=128.41&page=0&size=20
      */
     @Operation(
             summary = "증상·질환 기준 병원 검색",
             description = "병원진료정보 Top5(상위 5개 질병명) 중 하나라도 symptom 토큰과 부분 일치하면 포함됩니다. "
                     + "공백·쉼표로 여러 토큰을 넣으면 하나라도 매칭되면 포함(OR)합니다. "
-                    + "keyword·department는 기존 목록 검색과 동일한 추가 필터입니다."
+                    + "정렬: 매칭된 슬롯이 더 상위(1위→5위)인 병원이 먼저이며, 같은 슬롯이면 lat·lng 기준 거리 가까운 순입니다. "
+                    + "lat·lng를 생략하면 거리 정렬 없이 이름 순으로만 타이브레이크합니다."
     )
     @GetMapping("/search/symptom")
     public ResponseEntity<Page<HospitalResponse>> searchBySymptom(
             @Parameter(description = "증상 또는 질환 키워드 (예: 두통, 감기)") @RequestParam("symptom") String symptom,
-            @RequestParam(required = false) String keyword,
-            @RequestParam(required = false) String department,
-            @PageableDefault(size = 20, sort = "name") Pageable pageable
+            @Parameter(description = "사용자 위도 (WGS84, 거리 정렬용)") @RequestParam(required = false) BigDecimal lat,
+            @Parameter(description = "사용자 경도 (WGS84, 거리 정렬용)") @RequestParam(required = false) BigDecimal lng,
+            @PageableDefault(size = 20) Pageable pageable
     ) {
-        Page<HospitalResponse> page = hospitalService.findAllBySymptom(symptom, keyword, department, pageable);
+        Page<HospitalResponse> page = hospitalService.findAllBySymptom(symptom, lat, lng, pageable);
         return ResponseEntity.ok(page);
     }
 

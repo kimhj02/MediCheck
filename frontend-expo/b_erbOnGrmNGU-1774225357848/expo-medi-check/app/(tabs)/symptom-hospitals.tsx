@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo, useEffect } from 'react'
 import {
   View,
   Text,
@@ -7,35 +7,54 @@ import {
   FlatList,
   TouchableOpacity,
   ActivityIndicator,
-  ScrollView,
 } from 'react-native'
 import { useRouter } from 'expo-router'
 import { useInfiniteQuery } from '@tanstack/react-query'
+import * as Location from 'expo-location'
 import { Ionicons } from '@expo/vector-icons'
 import { getHospitalsBySymptom } from '@/lib/api'
+import {
+  PRESET_OKGYE_HEUNGAN_46_LAT,
+  PRESET_OKGYE_HEUNGAN_46_LNG,
+} from '@/lib/presetTestLocation'
 import HospitalCard from '@/components/HospitalCard'
-
-const DEPARTMENTS = [
-  '전체',
-  '내과',
-  '외과',
-  '소아과',
-  '정형외과',
-  '피부과',
-  '이비인후과',
-  '안과',
-  '치과',
-  '산부인과',
-  '비뇨기과',
-  '신경과',
-  '정신건강의학과',
-] as const
 
 export default function SymptomHospitalsScreen() {
   const router = useRouter()
   const [symptom, setSymptom] = useState('')
-  const [keyword, setKeyword] = useState('')
-  const [selectedDepartment, setSelectedDepartment] = useState('전체')
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync()
+        if (status === 'granted') {
+          const pos = await Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.Balanced,
+          })
+          if (!cancelled) {
+            setCoords({
+              lat: pos.coords.latitude,
+              lng: pos.coords.longitude,
+            })
+          }
+          return
+        }
+      } catch {
+        /* 아래 프리셋으로 대체 */
+      }
+      if (!cancelled) {
+        setCoords({
+          lat: PRESET_OKGYE_HEUNGAN_46_LAT,
+          lng: PRESET_OKGYE_HEUNGAN_46_LNG,
+        })
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const symptomReady = symptom.trim().length >= 2
 
@@ -46,20 +65,19 @@ export default function SymptomHospitalsScreen() {
     isLoading,
     isFetchingNextPage,
   } = useInfiniteQuery({
-    queryKey: ['hospitalsBySymptom', symptom, keyword, selectedDepartment],
+    queryKey: ['hospitalsBySymptom', symptom, coords?.lat, coords?.lng],
     initialPageParam: 0,
     queryFn: ({ pageParam }) =>
       getHospitalsBySymptom({
         symptom: symptom.trim(),
-        keyword: keyword || undefined,
-        department:
-          selectedDepartment === '전체' ? undefined : selectedDepartment,
+        lat: coords?.lat,
+        lng: coords?.lng,
         page: pageParam,
         size: 20,
       }),
     getNextPageParam: (lastPage) =>
       lastPage.last ? undefined : lastPage.number + 1,
-    enabled: symptomReady,
+    enabled: symptomReady && coords != null,
   })
 
   const allHospitals = useMemo(
@@ -83,6 +101,9 @@ export default function SymptomHospitalsScreen() {
       fetchNextPage()
     }
   }, [hasNextPage, isFetchingNextPage, fetchNextPage])
+
+  const waitingCoords = symptomReady && coords == null
+  const listLoading = isLoading && !hospitalPages
 
   return (
     <View style={styles.container}>
@@ -110,66 +131,24 @@ export default function SymptomHospitalsScreen() {
           )}
         </View>
         <Text style={styles.hint}>
-          심평원에 동기화된 병원의 「진료 상위 5개 질병명」과 비교합니다. 공백·쉼표로
-          여러 키워드를 넣을 수 있으며, 2자 이상일 때 검색이 시작됩니다. Top5가 아직
+          심평원에 동기화된 병원의 「진료 상위 5개 질병명」과 비교합니다. 공백·쉼표로 여러
+          키워드를 넣을 수 있으며, 2자 이상일 때 검색이 시작됩니다. 결과는 매칭된 순위가 더
+          높은 병원(1위→5위)이 먼저 오고, 같은 순위는 현재 위치에서 가까운 순입니다. Top5가
           없는 병원은 결과에 나오지 않을 수 있습니다.
         </Text>
-
-        <View style={styles.narrowRow}>
-          <Ionicons name="search" size={18} color="#94A3B8" style={styles.narrowIcon} />
-          <TextInput
-            style={styles.narrowInput}
-            placeholder="병원명·주소로 좁히기 (선택)"
-            placeholderTextColor="#94A3B8"
-            value={keyword}
-            onChangeText={setKeyword}
-            returnKeyType="done"
-          />
-          {keyword.length > 0 && (
-            <TouchableOpacity onPress={() => setKeyword('')}>
-              <Ionicons name="close-circle" size={20} color="#94A3B8" />
-            </TouchableOpacity>
-          )}
-        </View>
-      </View>
-
-      <View style={styles.departmentContainer}>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.departmentList}
-        >
-          {DEPARTMENTS.map((dept) => (
-            <TouchableOpacity
-              key={dept}
-              style={[
-                styles.departmentChip,
-                selectedDepartment === dept && styles.departmentChipActive,
-              ]}
-              onPress={() => setSelectedDepartment(dept)}
-            >
-              <Text
-                style={[
-                  styles.departmentText,
-                  selectedDepartment === dept && styles.departmentTextActive,
-                ]}
-              >
-                {dept}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
       </View>
 
       <View style={styles.resultHeader}>
         <Text style={styles.resultCount}>
           {!symptomReady
             ? '증상을 2자 이상 입력해 주세요'
-            : isLoading && !hospitalPages
-              ? '검색 중…'
-              : totalHits > 0
-                ? `검색 결과 ${totalHits}건`
-                : '검색 결과 0건'}
+            : waitingCoords
+              ? '위치 확인 중…'
+              : listLoading
+                ? '검색 중…'
+                : totalHits > 0
+                  ? `검색 결과 ${totalHits}건`
+                  : '검색 결과 0건'}
         </Text>
       </View>
 
@@ -178,11 +157,11 @@ export default function SymptomHospitalsScreen() {
           <Ionicons name="pulse-outline" size={52} color="#CBD5E1" />
           <Text style={styles.emptyTitle}>증상별 병원 찾기</Text>
           <Text style={styles.emptyText}>
-            위 칸에 증상이나 질환명을 입력하면, 해당 병원의 진료 상위 5개 질병
-            데이터와 맞는 곳만 보여 드립니다.
+            위 칸에 증상이나 질환명을 입력하면, 해당 병원의 진료 상위 5개 질병 데이터와 맞는
+            곳만 보여 드립니다.
           </Text>
         </View>
-      ) : isLoading && !hospitalPages ? (
+      ) : waitingCoords || listLoading ? (
         <View style={styles.centered}>
           <ActivityIndicator size="large" color="#0EA5E9" />
         </View>
@@ -252,53 +231,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#64748B',
     lineHeight: 18,
-  },
-  narrowRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 12,
-    backgroundColor: '#F1F5F9',
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  narrowIcon: {
-    marginRight: 8,
-  },
-  narrowInput: {
-    flex: 1,
-    fontSize: 15,
-    color: '#1E293B',
-    paddingVertical: 6,
-  },
-  departmentContainer: {
-    backgroundColor: '#FFFFFF',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
-  },
-  departmentList: {
-    paddingHorizontal: 16,
-    alignItems: 'center',
-    gap: 8,
-  },
-  departmentChip: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: '#F1F5F9',
-    marginRight: 8,
-  },
-  departmentChipActive: {
-    backgroundColor: '#0EA5E9',
-  },
-  departmentText: {
-    fontSize: 14,
-    color: '#64748B',
-    fontWeight: '500',
-  },
-  departmentTextActive: {
-    color: '#FFFFFF',
   },
   resultHeader: {
     paddingHorizontal: 16,

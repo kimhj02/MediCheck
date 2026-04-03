@@ -34,5 +34,12 @@ public interface HospitalClinicTop5Repository extends JpaRepository<HospitalClin
                OR LOWER(COALESCE(t.diseaseNm5,'')) LIKE LOWER(CONCAT('%', :q, '%'))
             """)
     List<Long> findHospitalIdsWithDiseaseNameContaining(@Param("q") String q);
+
+    /** 증상 검색 정렬용: 병원 엔티티를 한 번에 로드 (N+1 방지) */
+    @Query("""
+            SELECT DISTINCT t FROM HospitalClinicTop5 t JOIN FETCH t.hospital h
+            WHERE h.id IN :ids
+            """)
+    List<HospitalClinicTop5> findAllByHospitalIdInWithHospitalFetch(@Param("ids") List<Long> ids);
 }
 

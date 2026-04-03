@@ -16,6 +16,7 @@ import com.medicheck.server.util.SymptomKeywordTokenizer;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
@@ -23,8 +24,11 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -45,6 +49,7 @@ public class HospitalService {
     private static final int NEARBY_MAX_RESULTS = 500;
     /** 근처 병원 조회에서 허용할 최대 반경 (미터) — 예: 50km */
     private static final double MAX_RADIUS_METERS = 50_000;
+    private static final double EARTH_RADIUS_METERS = 6_371_000.0;
 
     /**
      * 등록된 병원 목록을 페이지 단위로 조회합니다.
@@ -63,12 +68,13 @@ public class HospitalService {
     /**
      * 증상(또는 질환) 키워드로 검색합니다. HIRA 동기화된 병원진료정보 Top5(상위 5개 질병명) 필드와 부분 일치하는 병원만 반환합니다.
      * 토큰은 공백·쉼표로 나누며, 토큰 하나라도 질병명에 매칭되면 포함(OR)합니다.
-     * keyword·department는 기존 목록 검색과 동일하게 추가 필터로 적용됩니다.
+     * 정렬: 매칭된 질병명 슬롯이 더 상위(1위→5위)인 병원이 먼저 오고, 동일 슬롯이면 사용자 좌표(lat/lng) 기준 거리 오름차순입니다.
+     * lat/lng가 없으면 거리는 무한대로 두어 이름 순으로만 타이브레이크합니다.
      */
     public Page<HospitalResponse> findAllBySymptom(
             String symptom,
-            String keyword,
-            String department,
+            BigDecimal userLat,
+            BigDecimal userLng,
             Pageable pageable
     ) {
         if (!StringUtils.hasText(symptom)) {
@@ -78,26 +84,108 @@ public class HospitalService {
         if (tokens.isEmpty()) {
             return Page.empty(pageable);
         }
+        List<String> safeTokens = new ArrayList<>();
         LinkedHashSet<Long> unionIds = new LinkedHashSet<>();
         for (String token : tokens) {
             String safe = sanitizeLikeSubstring(token);
             if (safe.length() < 2) {
                 continue;
             }
+            safeTokens.add(safe);
             unionIds.addAll(hospitalClinicTop5Repository.findHospitalIdsWithDiseaseNameContaining(safe));
         }
-        if (unionIds.isEmpty()) {
+        if (unionIds.isEmpty() || safeTokens.isEmpty()) {
             return Page.empty(pageable);
         }
 
-        Specification<Hospital> idIn = (root, query, cb) -> root.get("id").in(unionIds);
-        Specification<Hospital> combined = idIn
-                .and(HospitalSpecification.hasKeyword(keyword))
-                .and(HospitalSpecification.hasDepartment(department));
+        List<Long> idList = new ArrayList<>(unionIds);
+        List<HospitalClinicTop5> top5Rows =
+                hospitalClinicTop5Repository.findAllByHospitalIdInWithHospitalFetch(idList);
 
-        Page<Hospital> page = hospitalRepository.findAll(combined, pageable);
-        List<HospitalResponse> content = enrichHospitalResponses(page.getContent());
-        return new PageImpl<>(content, pageable, page.getTotalElements());
+        List<RankedHospital> ranked = new ArrayList<>();
+        for (HospitalClinicTop5 t : top5Rows) {
+            Hospital h = t.getHospital();
+            int rank = bestTop5MatchRank(t, safeTokens);
+            if (rank > 5) {
+                continue;
+            }
+            double distM = haversineMeters(userLat, userLng, h.getLatitude(), h.getLongitude());
+            ranked.add(new RankedHospital(rank, distM, h));
+        }
+
+        ranked.sort(Comparator
+                .comparingInt(RankedHospital::matchRank)
+                .thenComparingDouble(RankedHospital::distanceMeters)
+                .thenComparing(r -> r.hospital().getName(), Comparator.nullsLast(String::compareTo)));
+
+        long total = ranked.size();
+        int pageNumber = pageable.getPageNumber();
+        int pageSize = pageable.getPageSize();
+        int from = Math.min(pageNumber * pageSize, ranked.size());
+        int to = Math.min(from + pageSize, ranked.size());
+        List<Hospital> slice = ranked.subList(from, to).stream()
+                .map(RankedHospital::hospital)
+                .toList();
+
+        List<HospitalResponse> content = enrichHospitalResponses(slice);
+        Pageable pageMeta = PageRequest.of(pageNumber, pageSize);
+        return new PageImpl<>(content, pageMeta, total);
+    }
+
+    private record RankedHospital(int matchRank, double distanceMeters, Hospital hospital) {
+    }
+
+    /**
+     * 토큰별로 질병명 1~5 슬롯 중 가장 앞(가장 상위)에 매칭되는 순번을 구하고, 토큰 간 최솟값을 반환합니다.
+     * JPQL LIKE 부분 일치와 동일하게 {@code contains}로 비교합니다.
+     */
+    private static int bestTop5MatchRank(HospitalClinicTop5 t, List<String> safeTokens) {
+        int best = Integer.MAX_VALUE;
+        String[] fields = {
+                t.getDiseaseNm1(), t.getDiseaseNm2(), t.getDiseaseNm3(), t.getDiseaseNm4(), t.getDiseaseNm5()
+        };
+        for (String token : safeTokens) {
+            if (token.length() < 2) {
+                continue;
+            }
+            String tl = token.toLowerCase(Locale.ROOT);
+            int tokenBest = Integer.MAX_VALUE;
+            for (int i = 0; i < 5; i++) {
+                String d = fields[i];
+                if (d == null || d.isBlank()) {
+                    continue;
+                }
+                if (d.toLowerCase(Locale.ROOT).contains(tl)) {
+                    tokenBest = Math.min(tokenBest, i + 1);
+                }
+            }
+            if (tokenBest != Integer.MAX_VALUE) {
+                best = Math.min(best, tokenBest);
+            }
+        }
+        return best == Integer.MAX_VALUE ? 6 : best;
+    }
+
+    private static double haversineMeters(
+            BigDecimal userLat,
+            BigDecimal userLng,
+            BigDecimal hospLat,
+            BigDecimal hospLng
+    ) {
+        if (userLat == null || userLng == null || hospLat == null || hospLng == null) {
+            return Double.POSITIVE_INFINITY;
+        }
+        double lat1 = userLat.doubleValue();
+        double lon1 = userLng.doubleValue();
+        double lat2 = hospLat.doubleValue();
+        double lon2 = hospLng.doubleValue();
+        double dLat = Math.toRadians(lat2 - lat1);
+        double dLon = Math.toRadians(lon2 - lon1);
+        double a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
+                + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
+                * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return EARTH_RADIUS_METERS * c;
     }
 
     /** LIKE 패턴에 넣기 전에 %, _, \\ 문자를 제거해 의도치 않은 와일드카드·이스케이프를 막습니다. */
