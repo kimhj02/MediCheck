@@ -8,6 +8,8 @@ import com.medicheck.server.security.XAdminKeyAuthFilter;
 import com.medicheck.server.dto.NearbyHospitalResponse;
 import com.medicheck.server.service.HospitalService;
 import com.medicheck.server.service.HiraSyncService;
+import com.medicheck.server.service.HospitalEvaluationSyncService;
+import com.medicheck.server.service.HospitalTop5SyncService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -42,7 +44,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
     com.medicheck.server.config.SecurityBeanConfig.class,
     com.medicheck.server.config.TestAuthConfig.class,
 })
-@TestPropertySource(properties = "admin.sync-key=test-admin-key")
+@TestPropertySource(properties = {
+        "admin.sync-key=test-admin-key",
+        "app.jwt.secret=abcdefghijklmnopqrstuvwxyz123456"
+})
 class HospitalControllerApiTest {
 
     @Autowired
@@ -53,6 +58,12 @@ class HospitalControllerApiTest {
 
     @MockBean
     private HiraSyncService hiraSyncService;
+
+    @MockBean
+    private HospitalEvaluationSyncService hospitalEvaluationSyncService;
+
+    @MockBean
+    private HospitalTop5SyncService hospitalTop5SyncService;
 
     @Test
     @DisplayName("GET /api/hospitals/{id} - 존재하는 병원은 200과 상세 정보를 반환한다")
@@ -142,5 +153,28 @@ class HospitalControllerApiTest {
     void getNearbyHospitals_returns400WhenMissingParams() throws Exception {
         mockMvc.perform(get("/api/hospitals/nearby"))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("GET /api/hospitals/search/symptom - 증상 검색 시 200과 페이지 결과를 반환한다")
+    void searchBySymptom_returns200AndPage() throws Exception {
+        HospitalResponse item = HospitalResponse.builder()
+                .id(2L)
+                .name("증상매칭병원")
+                .address("서울")
+                .department("내과")
+                .build();
+        Page<HospitalResponse> page = new PageImpl<>(List.of(item), PageRequest.of(0, 20), 1);
+        given(hospitalService.findAllBySymptom(any(), any(), any(), any())).willReturn(page);
+
+        mockMvc.perform(get("/api/hospitals/search/symptom")
+                        .param("symptom", "두통")
+                        .param("page", "0")
+                        .param("size", "20"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content").isArray())
+                .andExpect(jsonPath("$.content[0].id").value(2))
+                .andExpect(jsonPath("$.content[0].name").value("증상매칭병원"))
+                .andExpect(jsonPath("$.totalElements").value(1));
     }
 }
