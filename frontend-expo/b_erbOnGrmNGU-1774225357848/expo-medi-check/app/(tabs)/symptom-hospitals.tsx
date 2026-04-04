@@ -1,5 +1,11 @@
 import { useState, useCallback, useMemo, useEffect } from 'react'
 import {
+  useInfiniteQuery,
+  keepPreviousData,
+  type InfiniteData,
+  type Query,
+} from '@tanstack/react-query'
+import {
   View,
   Text,
   StyleSheet,
@@ -9,11 +15,36 @@ import {
   ActivityIndicator,
 } from 'react-native'
 import { useRouter } from 'expo-router'
-import { useInfiniteQuery } from '@tanstack/react-query'
 import * as Location from 'expo-location'
 import { Ionicons } from '@expo/vector-icons'
 import { getHospitalsBySymptom } from '@/lib/api'
 import HospitalCard from '@/components/HospitalCard'
+import type { Hospital, Page } from '@/types'
+
+const SYMPTOM_QUERY_KEY_ROOT = 'hospitalsBySymptom' as const
+const NO_COORDS_SENTINEL = 'no-coords' as const
+
+type SymptomHospitalInfiniteData = InfiniteData<Page<Hospital>>
+
+/**
+ * coords가 나중에 잡히면 queryKey가 바뀌어도 이전 페이지를 유지(전면 로딩 방지).
+ * 증상 문자열이 바뀌면 이전 목록을 placeholder로 쓰지 않는다.
+ */
+function symptomSearchPlaceholderData(
+  previousData: SymptomHospitalInfiniteData | undefined,
+  previousQuery: Query | undefined,
+  symptomTrim: string,
+  coords: { lat: number; lng: number } | null,
+): SymptomHospitalInfiniteData | undefined {
+  if (!previousData || !previousQuery) return undefined
+  const key = previousQuery.queryKey
+  if (!Array.isArray(key) || key[0] !== SYMPTOM_QUERY_KEY_ROOT) return undefined
+  const prevSymptom = key[1]
+  if (typeof prevSymptom !== 'string' || prevSymptom !== symptomTrim) return undefined
+  const prevLoc = key[2]
+  if (prevLoc === NO_COORDS_SENTINEL && coords != null) return previousData
+  return keepPreviousData(previousData) as SymptomHospitalInfiniteData | undefined
+}
 
 function userFacingQueryErrorMessage(err: unknown): string {
   if (err instanceof Error) {
@@ -58,7 +89,16 @@ export default function SymptomHospitalsScreen() {
     }
   }, [])
 
-  const symptomReady = symptom.trim().length >= 2
+  const symptomTrim = symptom.trim()
+  const symptomReady = symptomTrim.length >= 2
+
+  const symptomQueryKey = useMemo(
+    () =>
+      coords != null
+        ? ([SYMPTOM_QUERY_KEY_ROOT, symptomTrim, coords.lat, coords.lng] as const)
+        : ([SYMPTOM_QUERY_KEY_ROOT, symptomTrim, NO_COORDS_SENTINEL] as const),
+    [symptomTrim, coords],
+  )
 
   const {
     data: hospitalPages,
@@ -72,11 +112,11 @@ export default function SymptomHospitalsScreen() {
     error,
     refetch,
   } = useInfiniteQuery({
-    queryKey: ['hospitalsBySymptom', symptom, coords?.lat, coords?.lng],
+    queryKey: symptomQueryKey,
     initialPageParam: 0,
     queryFn: ({ pageParam }) =>
       getHospitalsBySymptom({
-        symptom: symptom.trim(),
+        symptom: symptomTrim,
         lat: coords?.lat,
         lng: coords?.lng,
         page: pageParam,
@@ -85,6 +125,13 @@ export default function SymptomHospitalsScreen() {
     getNextPageParam: (lastPage) =>
       lastPage.last ? undefined : lastPage.number + 1,
     enabled: symptomReady,
+    placeholderData: (previousData, previousQuery) =>
+      symptomSearchPlaceholderData(
+        previousData,
+        previousQuery,
+        symptomTrim,
+        coords,
+      ),
   })
 
   const allHospitals = useMemo(
