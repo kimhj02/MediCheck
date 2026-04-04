@@ -15,6 +15,18 @@ import { Ionicons } from '@expo/vector-icons'
 import { getHospitalsBySymptom } from '@/lib/api'
 import HospitalCard from '@/components/HospitalCard'
 
+function userFacingQueryErrorMessage(err: unknown): string {
+  if (err instanceof Error) {
+    if (err.message.includes('서버 응답이 없습니다')) {
+      return err.message
+    }
+    if (err.message.startsWith('API Error')) {
+      return '서버와 통신할 수 없습니다. 잠시 후 다시 시도해 주세요.'
+    }
+  }
+  return '요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.'
+}
+
 export default function SymptomHospitalsScreen() {
   const router = useRouter()
   const [symptom, setSymptom] = useState('')
@@ -54,7 +66,9 @@ export default function SymptomHospitalsScreen() {
     hasNextPage,
     isLoading,
     isFetchingNextPage,
-    isError,
+    isLoadingError,
+    isRefetchError,
+    isFetchNextPageError,
     error,
     refetch,
   } = useInfiniteQuery({
@@ -96,6 +110,8 @@ export default function SymptomHospitalsScreen() {
   }, [hasNextPage, isFetchingNextPage, fetchNextPage])
 
   const listLoading = isLoading && !hospitalPages
+  const showFullScreenLoadError = isLoadingError && !hospitalPages
+  const loadErrorMessage = error ? userFacingQueryErrorMessage(error) : ''
 
   return (
     <View style={styles.container}>
@@ -143,12 +159,24 @@ export default function SymptomHospitalsScreen() {
             ? '증상을 2자 이상 입력해 주세요'
             : listLoading
               ? '검색 중…'
-              : isError
-                ? '검색 중 오류가 발생했습니다. 다시 시도해 주세요.'
-                : totalHits > 0
-                  ? `검색 결과 ${totalHits}건`
-                  : '검색 결과 0건'}
+              : showFullScreenLoadError
+                ? '검색을 불러오지 못했습니다. 아래에서 다시 시도해 주세요.'
+                : isRefetchError && dedupedHospitals.length > 0
+                  ? `검색 결과 ${totalHits}건 · 목록 새로고침에 실패했습니다`
+                  : totalHits > 0
+                    ? `검색 결과 ${totalHits}건`
+                    : '검색 결과 0건'}
         </Text>
+        {isRefetchError && dedupedHospitals.length > 0 ? (
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel="목록 새로고침 다시 시도"
+            onPress={() => refetch()}
+            style={styles.inlineRetryRow}
+          >
+            <Text style={styles.inlineRetryText}>새로고침 다시 시도</Text>
+          </TouchableOpacity>
+        ) : null}
       </View>
 
       {!symptomReady ? (
@@ -164,16 +192,15 @@ export default function SymptomHospitalsScreen() {
         <View style={styles.centered}>
           <ActivityIndicator size="large" color="#0EA5E9" />
         </View>
-      ) : isError ? (
+      ) : showFullScreenLoadError ? (
         <View style={styles.centered}>
           <Ionicons name="warning-outline" size={48} color="#F97316" />
-          <Text style={styles.emptyText}>
-            데이터를 불러오는 중 오류가 발생했습니다.
-          </Text>
-          {error && (
-            <Text style={styles.emptyText}>{String(error.message ?? '잠시 후 다시 시도해 주세요.')}</Text>
-          )}
-          <TouchableOpacity onPress={() => refetch()}>
+          <Text style={styles.emptyText}>{loadErrorMessage}</Text>
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel="검색 다시 시도"
+            onPress={() => refetch()}
+          >
             <Text style={[styles.emptyText, { color: '#0EA5E9', fontWeight: '600' }]}>
               다시 시도
             </Text>
@@ -200,6 +227,19 @@ export default function SymptomHospitalsScreen() {
           ListFooterComponent={
             isFetchingNextPage ? (
               <ActivityIndicator size="small" color="#0EA5E9" style={styles.footer} />
+            ) : isFetchNextPageError ? (
+              <View style={styles.nextPageError}>
+                <Text style={styles.nextPageErrorText}>
+                  추가 목록을 불러오지 못했습니다.
+                </Text>
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  accessibilityLabel="다음 페이지 다시 불러오기"
+                  onPress={() => fetchNextPage()}
+                >
+                  <Text style={styles.nextPageRetryText}>다시 시도</Text>
+                </TouchableOpacity>
+              </View>
             ) : null
           }
         />
@@ -253,6 +293,30 @@ const styles = StyleSheet.create({
   resultCount: {
     fontSize: 14,
     color: '#64748B',
+  },
+  inlineRetryRow: {
+    marginTop: 8,
+    alignSelf: 'flex-start',
+  },
+  inlineRetryText: {
+    fontSize: 14,
+    color: '#0EA5E9',
+    fontWeight: '600',
+  },
+  nextPageError: {
+    paddingVertical: 16,
+    alignItems: 'center',
+    gap: 8,
+  },
+  nextPageErrorText: {
+    fontSize: 14,
+    color: '#64748B',
+    textAlign: 'center',
+  },
+  nextPageRetryText: {
+    fontSize: 14,
+    color: '#0EA5E9',
+    fontWeight: '600',
   },
   centered: {
     flex: 1,
