@@ -13,10 +13,6 @@ import { useInfiniteQuery } from '@tanstack/react-query'
 import * as Location from 'expo-location'
 import { Ionicons } from '@expo/vector-icons'
 import { getHospitalsBySymptom } from '@/lib/api'
-import {
-  PRESET_OKGYE_HEUNGAN_46_LAT,
-  PRESET_OKGYE_HEUNGAN_46_LNG,
-} from '@/lib/presetTestLocation'
 import HospitalCard from '@/components/HospitalCard'
 
 export default function SymptomHospitalsScreen() {
@@ -29,26 +25,20 @@ export default function SymptomHospitalsScreen() {
     ;(async () => {
       try {
         const { status } = await Location.requestForegroundPermissionsAsync()
-        if (status === 'granted') {
-          const pos = await Location.getCurrentPositionAsync({
-            accuracy: Location.Accuracy.Balanced,
-          })
-          if (!cancelled) {
-            setCoords({
-              lat: pos.coords.latitude,
-              lng: pos.coords.longitude,
-            })
-          }
+        if (status !== 'granted') {
           return
         }
-      } catch {
-        /* 아래 프리셋으로 대체 */
-      }
-      if (!cancelled) {
-        setCoords({
-          lat: PRESET_OKGYE_HEUNGAN_46_LAT,
-          lng: PRESET_OKGYE_HEUNGAN_46_LNG,
+        const pos = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
         })
+        if (!cancelled) {
+          setCoords({
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude,
+          })
+        }
+      } catch {
+        /* 거리 정렬 없이 검색 — coords 유지(null) */
       }
     })()
     return () => {
@@ -80,7 +70,7 @@ export default function SymptomHospitalsScreen() {
       }),
     getNextPageParam: (lastPage) =>
       lastPage.last ? undefined : lastPage.number + 1,
-    enabled: symptomReady && coords != null,
+    enabled: symptomReady,
   })
 
   const allHospitals = useMemo(
@@ -105,7 +95,6 @@ export default function SymptomHospitalsScreen() {
     }
   }, [hasNextPage, isFetchingNextPage, fetchNextPage])
 
-  const waitingCoords = symptomReady && coords == null
   const listLoading = isLoading && !hospitalPages
 
   return (
@@ -140,8 +129,11 @@ export default function SymptomHospitalsScreen() {
         <Text style={styles.hint}>
           심평원에 동기화된 병원의 「진료 상위 5개 질병명」과 비교합니다. 공백·쉼표로 여러
           키워드를 넣을 수 있으며, 2자 이상일 때 검색이 시작됩니다. 결과는 매칭된 순위가 더
-          높은 병원(1위→5위)이 먼저 오고, 같은 순위는 현재 위치에서 가까운 순입니다. Top5가
-          없는 병원은 결과에 나오지 않을 수 있습니다.
+          높은 병원(1위→5위)이 먼저 오고,
+          {coords != null
+            ? ' 같은 순위는 현재 위치 기준 가까운 순입니다.'
+            : ' 위치 권한을 허용하면 같은 순위를 가까운 순으로 정렬합니다(미허용 시 거리 정렬 없음).'}
+          Top5가 없는 병원은 결과에 나오지 않을 수 있습니다.
         </Text>
       </View>
 
@@ -149,15 +141,13 @@ export default function SymptomHospitalsScreen() {
         <Text style={styles.resultCount}>
           {!symptomReady
             ? '증상을 2자 이상 입력해 주세요'
-            : waitingCoords
-              ? '위치 확인 중…'
-              : listLoading
-                ? '검색 중…'
-                : isError
-                  ? '검색 중 오류가 발생했습니다. 다시 시도해 주세요.'
-                  : totalHits > 0
-                    ? `검색 결과 ${totalHits}건`
-                    : '검색 결과 0건'}
+            : listLoading
+              ? '검색 중…'
+              : isError
+                ? '검색 중 오류가 발생했습니다. 다시 시도해 주세요.'
+                : totalHits > 0
+                  ? `검색 결과 ${totalHits}건`
+                  : '검색 결과 0건'}
         </Text>
       </View>
 
@@ -170,7 +160,7 @@ export default function SymptomHospitalsScreen() {
             곳만 보여 드립니다.
           </Text>
         </View>
-      ) : waitingCoords || listLoading ? (
+      ) : listLoading ? (
         <View style={styles.centered}>
           <ActivityIndicator size="large" color="#0EA5E9" />
         </View>
