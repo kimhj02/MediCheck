@@ -26,11 +26,14 @@ spring:
     baseline-version: 0
 
 # JWT (회원 로그인). 운영/공용 환경에서는 반드시 환경변수 JWT_SECRET 설정
+# CORS: 브라우저에서 프론트 도메인(예: CloudFront)이 API를 호출할 때 필요. 쉼표로 여러 출처 허용.
 app:
   jwt:
     # 기본값(fallback) 없이 환경변수나 프로필별 설정에서만 주입
     secret: ${JWT_SECRET}
     expiration-ms: 86400000  # 24h
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:}
 
 # 동기화 API 호출 시 필요한 관리자 키 (헤더 X-Admin-Key 와 일치해야 함).
 # 로컬: 기본값 사용. 운영: 반드시 환경변수 ADMIN_SYNC_KEY 로 덮어써야 함.

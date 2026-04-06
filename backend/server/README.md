@@ -29,3 +29,16 @@ spring:
 
 - 파이프라인 또는 시크릿 매니저에 **`DB_PASSWORD`** 를 등록하세요.
 - 예전에 Git에 평문 비밀번호가 있었다면 **DB 비밀번호를 반드시 변경**하는 것을 권장합니다.
+
+### `prod` 프로필 (`application-prod.yaml`)
+
+AWS 등에 배포할 때 `--spring.profiles.active=prod` 로 실행합니다.
+
+- **DB**: `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME`, `DB_PASSWORD` (필수)
+- **JWT·심평·카카오**: `application.yaml`과 동일하게 환경변수로만 주입 (`JWT_SECRET`, `HIRA_SERVICE_KEY`, `KAKAO_*` 등)
+- **동기화 API**: `ADMIN_SYNC_KEY` (prod에서는 기본값 없음 — 반드시 설정)
+- **CORS (SPA/CloudFront)**: `CORS_ALLOWED_ORIGINS`에 허용할 출처를 쉼표로 나열 (예: `https://d123.cloudfront.net`). 비우면 브라우저 크로스 오리진 요청에 `Access-Control-Allow-Origin`을 붙이지 않습니다.
+
+### 테스트
+
+- `ServerApplicationTests`는 **스키마가 준비된 MySQL**과 `DB_PASSWORD`·`JWT_SECRET` 등이 있어야 통과합니다. 로컬 DB 없이 `./gradlew test` 시 해당 한 건은 실패할 수 있습니다.
