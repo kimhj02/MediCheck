@@ -1,0 +1,28 @@
+# 운영(prod) 프로필 — AWS 등 배포 시: --spring.profiles.active=prod
+# 비밀·URL은 환경변수/Secrets Manager만 사용 (이 파일에 키를 넣지 않음)
+spring:
+  config:
+    activate:
+      on-profile: prod
+  datasource:
+    url: ${SPRING_DATASOURCE_URL}
+    username: ${SPRING_DATASOURCE_USERNAME}
+    password: ${DB_PASSWORD}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: false
+
+logging:
+  level:
+    root: INFO
+    com.medicheck.server: INFO
+    org.hibernate.SQL: WARN
+    org.hibernate.orm.jdbc.bind: WARN
+
+# 동기화 API용 — 운영에서는 반드시 설정 (로컬 기본값 없음)
+admin:
+  sync-key: ${ADMIN_SYNC_KEY}

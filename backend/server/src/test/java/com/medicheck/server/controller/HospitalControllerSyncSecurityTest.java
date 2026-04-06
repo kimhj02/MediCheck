@@ -8,6 +8,7 @@ import com.medicheck.server.security.XAdminKeyAuthFilter;
 import com.medicheck.server.service.HiraSyncService;
 import com.medicheck.server.service.HospitalEvaluationSyncService;
 import com.medicheck.server.service.HospitalService;
+import com.medicheck.server.service.HospitalTop5SyncService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -36,7 +37,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
     com.medicheck.server.config.SecurityBeanConfig.class,
     com.medicheck.server.config.TestAuthConfig.class,
 })
-@TestPropertySource(properties = "admin.sync-key=test-admin-key")
+@TestPropertySource(properties = {
+        "admin.sync-key=test-admin-key",
+        "app.jwt.secret=abcdefghijklmnopqrstuvwxyz123456"
+})
 class HospitalControllerSyncSecurityTest {
 
     @Autowired
@@ -50,6 +54,9 @@ class HospitalControllerSyncSecurityTest {
 
     @MockBean
     private HospitalEvaluationSyncService hospitalEvaluationSyncService;
+
+    @MockBean
+    private HospitalTop5SyncService hospitalTop5SyncService;
 
     @Test
     @DisplayName("동기화 엔드포인트는 관리자 키 없이 접근 시 403을 반환한다")
