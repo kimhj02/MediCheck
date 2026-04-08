@@ -25,3 +25,8 @@ replay_pid*
 
 # IDE
 .vscode/
+
+# Deployment env files
+.env
+.env.*
+!.env.aws.example
