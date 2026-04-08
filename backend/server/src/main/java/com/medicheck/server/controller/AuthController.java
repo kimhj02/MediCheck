@@ -14,9 +14,11 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -86,12 +88,57 @@ public class AuthController {
         if (redirectUri == null || redirectUri.isBlank()) {
             return ResponseEntity.badRequest().build();
         }
+        if (!isAllowedRedirectUri(redirectUri, kakaoOAuthProperties.getAllowedRedirectUris())) {
+            return ResponseEntity.status(403).build();
+        }
         String location = "https://kauth.kakao.com/oauth/authorize?client_id="
                 + URLEncoder.encode(restApiKey, StandardCharsets.UTF_8)
                 + "&redirect_uri="
                 + URLEncoder.encode(redirectUri, StandardCharsets.UTF_8)
                 + "&response_type=code";
         return ResponseEntity.status(302).header(HttpHeaders.LOCATION, location).build();
+    }
+
+    private boolean isAllowedRedirectUri(String redirectUri, List<String> allowedRedirectUris) {
+        if (allowedRedirectUris == null || allowedRedirectUris.isEmpty()) {
+            return false;
+        }
+        URI requestedUri = parseAndNormalizeUri(redirectUri);
+        if (requestedUri == null) {
+            return false;
+        }
+        return allowedRedirectUris.stream()
+                .map(this::parseAndNormalizeUri)
+                .anyMatch(allowed -> allowed != null && allowed.equals(requestedUri));
+    }
+
+    private URI parseAndNormalizeUri(String value) {
+        try {
+            URI uri = URI.create(value.trim()).normalize();
+            if (!uri.isAbsolute() || uri.getHost() == null) {
+                return null;
+            }
+            String scheme = uri.getScheme();
+            if (!"http".equalsIgnoreCase(scheme) && !"https".equalsIgnoreCase(scheme)) {
+                return null;
+            }
+            if (uri.getFragment() != null) {
+                return null;
+            }
+            int port = uri.getPort();
+            if (port == -1) {
+                port = "https".equalsIgnoreCase(scheme) ? 443 : 80;
+            }
+            String path = (uri.getPath() == null || uri.getPath().isBlank()) ? "/" : uri.getPath();
+            return URI.create(String.format("%s://%s:%d%s%s",
+                    scheme.toLowerCase(),
+                    uri.getHost().toLowerCase(),
+                    port,
+                    path,
+                    uri.getQuery() == null ? "" : "?" + uri.getQuery()));
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
     }
 
     /**
