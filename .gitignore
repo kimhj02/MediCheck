@@ -25,3 +25,14 @@ replay_pid*
 
 # IDE
 .vscode/
+
+# Deployment env files
+.env
+.env.local
+.env.development
+.env.production
+.env.test
+.env.aws
+!.env.aws.example
+!backend/server/.env.example
+!backend/server/.env.prod.example

@@ -1,0 +1,27 @@
+version: "2.4"
+
+services:
+  backend:
+    container_name: medicheck-backend
+    build:
+      context: ./backend/server
+      dockerfile: Dockerfile
+    env_file:
+      - ./backend/server/.env.prod
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+    restart: unless-stopped
+
+  frontend:
+    container_name: medicheck-frontend
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_KAKAO_APP_KEY: ${VITE_KAKAO_APP_KEY}
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-8080}:8080"
