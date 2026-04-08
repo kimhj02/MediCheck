@@ -1,3 +1,5 @@
+version: "2.4"
+
 services:
   backend:
     container_name: medicheck-backend
@@ -18,7 +20,8 @@ services:
       args:
         VITE_KAKAO_APP_KEY: ${VITE_KAKAO_APP_KEY}
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     restart: unless-stopped
     ports:
       - "${FRONTEND_PORT:-8080}:8080"
