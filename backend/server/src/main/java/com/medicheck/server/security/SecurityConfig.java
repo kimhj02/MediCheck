@@ -91,6 +91,7 @@ public class SecurityConfig {
                                 "/api/auth/signup",
                                 "/api/auth/login/kakao",
                                 "/api/directions/**",
+                                "/actuator/health",
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
                                 "/v3/api-docs/**",
