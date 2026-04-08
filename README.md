@@ -150,7 +150,7 @@ bash scripts/deploy/redeploy.sh
 
 ## 운영 시 체크 포인트
 
-- 보안그룹: `80/443` 공개, `22`는 운영자 IP로 제한
+- 보안그룹: `FRONTEND_PORT`(기본 `8080`)와 `443` 공개, `22`는 운영자 IP로 제한
 - DB 접근: RDS는 EC2 보안그룹만 허용
 - 시크릿 관리: `.env` 파일은 커밋 금지, 가능하면 AWS SSM/Secrets Manager 사용
 - CORS 오류 시 `CORS_ALLOWED_ORIGINS` 값 우선 점검

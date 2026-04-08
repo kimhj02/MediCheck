@@ -92,13 +92,13 @@ docker compose --env-file .env.aws -f docker-compose.aws.yml up -d
 
 ## 4) 네트워크/보안 체크
 
-- EC2 보안그룹 인바운드: `80`(필수), `443`(TLS 사용 시), `22`(운영자 IP 제한)
+- EC2 보안그룹 인바운드: `FRONTEND_PORT`(기본 `8080`)와 `443`(TLS 사용 시), `22`(운영자 IP 제한)
 - `8080`은 외부 공개하지 않음 (백엔드는 내부 네트워크에서만 노출)
 - RDS 보안그룹에서 EC2 SG만 DB 포트 접근 허용
 
 ## 5) 배포 후 점검
 
-- 프론트 접속: `http://<EC2_PUBLIC_IP>/`
+- 프론트 접속: `http://<EC2_PUBLIC_IP>:<FRONTEND_PORT>/` (기본 `8080`)
 - API 점검: `http://<EC2_PUBLIC_IP>/api/actuator/health` 또는 주요 API
 - CORS 오류 발생 시 `CORS_ALLOWED_ORIGINS` 값 재확인
 
