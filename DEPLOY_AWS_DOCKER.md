@@ -99,8 +99,8 @@ docker compose --env-file .env.aws -f docker-compose.aws.yml up -d
 ## 5) 배포 후 점검
 
 - 프론트 접속: `http://<EC2_PUBLIC_IP>:<FRONTEND_PORT>/` (기본 `8080`)
-- API 점검: `http://<EC2_PUBLIC_IP>/api/actuator/health` 또는 주요 API
-- CORS 오류 발생 시 `CORS_ALLOWED_ORIGINS` 값 재확인
+- API 점검: `http://<EC2_PUBLIC_IP>:<FRONTEND_PORT>/api/actuator/health` 또는 주요 API
+- CORS 오류 발생 시 `CORS_ALLOWED_ORIGINS` 값을 `http://<EC2_PUBLIC_IP>:<FRONTEND_PORT>` 형식과 일치하게 재확인
 
 ## 6) 운영 권장사항
 
