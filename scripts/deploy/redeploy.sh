@@ -37,6 +37,10 @@ if [[ ! -f "backend/server/.env.prod" ]]; then
 fi
 
 echo "[INFO] Fetching latest code..."
+if [[ -n "$(git status --porcelain)" ]]; then
+  echo "[ERROR] 로컬 변경사항이 있어 배포를 중단합니다. 커밋/스태시 후 다시 실행하세요. (target branch: ${DEPLOY_BRANCH})"
+  exit 1
+fi
 git fetch origin
 git checkout "${DEPLOY_BRANCH}"
 git pull --ff-only origin "${DEPLOY_BRANCH}"
