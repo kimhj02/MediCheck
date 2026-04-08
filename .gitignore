@@ -32,6 +32,7 @@ replay_pid*
 .env.development
 .env.production
 .env.test
+.env.aws
 !.env.aws.example
 !backend/server/.env.example
 !backend/server/.env.prod.example
