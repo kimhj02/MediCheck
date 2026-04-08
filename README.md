@@ -47,6 +47,29 @@ MediCheck/
 
 ## 빠른 시작 (로컬 개발)
 
+### 0) MySQL 준비 (필수)
+
+`application.yaml` 기준 기본 DB 연결 정보는 아래와 같습니다.
+
+- Host: `localhost`
+- Port: `3306`
+- DB: `medi_check`
+- User: `root`
+- Password: `DB_PASSWORD` 환경변수로 주입
+
+로컬에 MySQL이 없다면 Docker로 빠르게 실행할 수 있습니다.
+
+```bash
+docker run -d \
+  --name medicheck-mysql \
+  -e MYSQL_ROOT_PASSWORD=your_local_password \
+  -e MYSQL_DATABASE=medi_check \
+  -p 3306:3306 \
+  mysql:8.4
+```
+
+이후 백엔드 실행 전에 `DB_PASSWORD=your_local_password`를 맞춰 주세요.
+
 ### 1) 백엔드 실행
 
 ```bash
@@ -100,7 +123,7 @@ npm run dev
 
 상세 문서는 `DEPLOY_AWS_DOCKER.md`를 참고하세요.
 
-핵심 절차:
+핵심 절차(EC2 + 외부 MySQL/RDS 기준):
 
 ```bash
 # 1) EC2 초기 설치 (Ubuntu)
@@ -116,6 +139,15 @@ docker compose --env-file .env.aws -f docker-compose.aws.yml up -d --build
 # 4) 재배포 (다운타임 최소화)
 bash scripts/deploy/redeploy.sh
 ```
+
+### 배포 시 DB 구성 옵션
+
+- **권장(운영)**: AWS RDS(MySQL) 사용
+  - `backend/server/.env.prod`의 `SPRING_DATASOURCE_URL`을 RDS 엔드포인트로 설정
+  - 예: `jdbc:mysql://<rds-endpoint>:3306/medi_check?...`
+- **대안(단일 EC2 테스트/소규모)**: EC2 내부 MySQL 컨테이너/직접 설치
+  - 이 경우에도 `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME`, `DB_PASSWORD`는 반드시 실제 DB와 일치해야 합니다.
+  - 단, 운영 안정성/백업/복구 측면에서 RDS 구성을 권장합니다.
 
 ## 운영 시 체크 포인트
 
