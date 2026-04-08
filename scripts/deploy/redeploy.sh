@@ -47,19 +47,29 @@ docker compose --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" build backend
 echo "[INFO] Updating backend container..."
 docker compose --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" up -d --no-deps backend
 
-echo "[INFO] Waiting for backend container state..."
+echo "[INFO] Waiting for backend container healthy state..."
 for _ in {1..20}; do
-  STATUS="$(docker compose --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" ps --status running backend | grep backend || true)"
-  if [[ -n "${STATUS}" ]]; then
-    echo "[INFO] Backend is running."
+  STATUS="$(
+    CID="$(docker compose --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" ps -q backend)"
+    if [[ -n "${CID}" ]]; then
+      docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "${CID}" 2>/dev/null
+    fi || true
+  )"
+  if [[ "${STATUS}" == "healthy" ]]; then
+    echo "[INFO] Backend is healthy."
     break
   fi
   sleep 3
 done
 
-STATUS="$(docker compose --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" ps --status running backend | grep backend || true)"
-if [[ -z "${STATUS}" ]]; then
-  echo "[ERROR] Backend가 정상 실행 상태가 아닙니다."
+STATUS="$(
+  CID="$(docker compose --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" ps -q backend)"
+  if [[ -n "${CID}" ]]; then
+    docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "${CID}" 2>/dev/null
+  fi || true
+)"
+if [[ "${STATUS}" != "healthy" ]]; then
+  echo "[ERROR] Backend가 healthy 상태가 아닙니다. 현재 상태: ${STATUS:-unknown}"
   docker compose --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" logs --tail=100 backend
   exit 1
 fi
