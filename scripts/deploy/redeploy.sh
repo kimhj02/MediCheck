@@ -49,7 +49,7 @@ docker compose --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" up -d --no-deps bac
 
 echo "[INFO] Waiting for backend container state..."
 for _ in {1..20}; do
-  STATUS="$(docker compose --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" ps --status running backend | rg backend || true)"
+  STATUS="$(docker compose --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" ps --status running backend | grep backend || true)"
   if [[ -n "${STATUS}" ]]; then
     echo "[INFO] Backend is running."
     break
@@ -57,7 +57,7 @@ for _ in {1..20}; do
   sleep 3
 done
 
-STATUS="$(docker compose --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" ps --status running backend | rg backend || true)"
+STATUS="$(docker compose --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" ps --status running backend | grep backend || true)"
 if [[ -z "${STATUS}" ]]; then
   echo "[ERROR] Backend가 정상 실행 상태가 아닙니다."
   docker compose --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" logs --tail=100 backend
