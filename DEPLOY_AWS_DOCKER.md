@@ -27,6 +27,12 @@ docker --version
 docker compose version
 ```
 
+또는 프로젝트 스크립트 사용:
+
+```bash
+bash scripts/ec2/bootstrap.sh
+```
+
 ## 2) 환경변수 파일 준비
 
 프로젝트 루트에서:
@@ -53,6 +59,20 @@ cp backend/server/.env.prod.example backend/server/.env.prod
 
 ```bash
 docker compose --env-file .env.aws -f docker-compose.aws.yml up -d --build
+```
+
+## 3-1) 재배포 스크립트 (다운타임 최소화)
+
+`main` 브랜치 최신 코드를 받아서 백엔드를 먼저 교체하고, 실행 상태 확인 후 프론트를 교체합니다.
+
+```bash
+bash scripts/deploy/redeploy.sh
+```
+
+필요 시 배포 브랜치/프로젝트 경로 지정:
+
+```bash
+DEPLOY_BRANCH=main PROJECT_DIR=/home/ubuntu/MediCheck bash scripts/deploy/redeploy.sh
 ```
 
 상태 확인:
