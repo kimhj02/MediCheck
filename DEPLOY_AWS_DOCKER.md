@@ -50,9 +50,9 @@ cp backend/server/.env.prod.example backend/server/.env.prod
 - `HIRA_SERVICE_KEY`, `KAKAO_*`
 - `CORS_ALLOWED_ORIGINS` (프론트 도메인)
 
-`.env.aws`에는 포트와 Vite 빌드 변수 입력:
+`.env.aws`에는 프론트 포트와 Vite 빌드 변수 입력:
 
-- `BACKEND_PORT`, `FRONTEND_PORT`
+- `FRONTEND_PORT`
 - `VITE_KAKAO_APP_KEY`, `VITE_KAKAO_REST_API_KEY`
 
 ## 3) 실행
@@ -93,7 +93,7 @@ docker compose --env-file .env.aws -f docker-compose.aws.yml up -d
 ## 4) 네트워크/보안 체크
 
 - EC2 보안그룹 인바운드: `80`(필수), `443`(TLS 사용 시), `22`(운영자 IP 제한)
-- `8080`은 외부 공개 불필요 (백엔드는 컨테이너 내부 통신 중심)
+- `8080`은 외부 공개하지 않음 (백엔드는 내부 네트워크에서만 노출)
 - RDS 보안그룹에서 EC2 SG만 DB 포트 접근 허용
 
 ## 5) 배포 후 점검

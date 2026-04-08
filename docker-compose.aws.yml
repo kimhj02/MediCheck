@@ -9,8 +9,6 @@ services:
     environment:
       SPRING_PROFILES_ACTIVE: prod
     restart: unless-stopped
-    ports:
-      - "${BACKEND_PORT:-8080}:8080"
 
   frontend:
     container_name: medicheck-frontend
