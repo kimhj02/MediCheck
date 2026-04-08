@@ -12,18 +12,10 @@ export function LoginPage() {
   const [submitting, setSubmitting] = useState(false)
 
   const handleKakaoLogin = () => {
-    const kakaoRestApiKey = (import.meta as any).env.VITE_KAKAO_REST_API_KEY as string | undefined
-    if (!kakaoRestApiKey) {
-      setError('카카오 REST API 키가 설정되지 않았습니다. .env 파일의 VITE_KAKAO_REST_API_KEY를 확인하세요.')
-      return
-    }
     const redirectUri = `${window.location.origin}/oauth/kakao/callback`
-    const params = new URLSearchParams({
-      client_id: kakaoRestApiKey,
-      redirect_uri: redirectUri,
-      response_type: 'code',
-    })
-    window.location.href = `https://kauth.kakao.com/oauth/authorize?${params.toString()}`
+    const params = new URLSearchParams({ redirectUri })
+    // REST API 키(client_id)는 백엔드에서 주입해 인가 URL로 리다이렉트한다.
+    window.location.href = `/api/auth/kakao/authorize?${params.toString()}`
   }
 
   const handleSubmit = async (e: React.FormEvent) => {

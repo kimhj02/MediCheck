@@ -53,7 +53,7 @@ cp backend/server/.env.prod.example backend/server/.env.prod
 `.env.aws`에는 프론트 포트와 Vite 빌드 변수 입력:
 
 - `FRONTEND_PORT`
-- `VITE_KAKAO_APP_KEY`, `VITE_KAKAO_REST_API_KEY`
+- `VITE_KAKAO_APP_KEY`
 
 ## 3) 실행
 

@@ -89,7 +89,7 @@ set -a && source .env && set +a
 ```bash
 cd frontend
 cp .env.example .env
-# .env 에 VITE_KAKAO_APP_KEY, VITE_KAKAO_REST_API_KEY 입력
+# .env 에 VITE_KAKAO_APP_KEY 입력
 npm install
 npm run dev
 ```
@@ -117,7 +117,6 @@ npm run dev
 - 템플릿: `.env.example`
 - 주요 변수:
   - `VITE_KAKAO_APP_KEY`
-  - `VITE_KAKAO_REST_API_KEY`
 
 ## AWS + Docker 배포
 

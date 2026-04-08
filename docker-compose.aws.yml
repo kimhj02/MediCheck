@@ -17,7 +17,6 @@ services:
       dockerfile: Dockerfile
       args:
         VITE_KAKAO_APP_KEY: ${VITE_KAKAO_APP_KEY}
-        VITE_KAKAO_REST_API_KEY: ${VITE_KAKAO_REST_API_KEY}
     depends_on:
       - backend
     restart: unless-stopped

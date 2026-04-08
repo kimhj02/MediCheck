@@ -1,16 +1,21 @@
 package com.medicheck.server.controller;
 
+import com.medicheck.server.config.KakaoOAuthProperties;
 import com.medicheck.server.domain.entity.User;
 import com.medicheck.server.service.AuthService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -24,6 +29,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 public class AuthController {
 
     private final AuthService authService;
+    private final KakaoOAuthProperties kakaoOAuthProperties;
 
     @Operation(summary = "회원가입", description = "loginId, password, name(선택)으로 가입합니다. 성공 시 JWT token을 반환합니다. 비밀번호 8자 이상.")
     @PostMapping("/signup")
@@ -68,6 +74,24 @@ public class AuthController {
             return ResponseEntity.status(401)
                     .body(Map.of("error", "login_failed", "message", e.getMessage()));
         }
+    }
+
+    @Operation(summary = "카카오 로그인 시작", description = "redirectUri를 받아 카카오 인가 페이지로 리다이렉트합니다. REST API 키는 서버 설정값을 사용합니다.")
+    @GetMapping("/kakao/authorize")
+    public ResponseEntity<Void> kakaoAuthorize(@RequestParam String redirectUri) {
+        String restApiKey = kakaoOAuthProperties.getRestApiKey();
+        if (restApiKey == null || restApiKey.isBlank()) {
+            return ResponseEntity.status(503).build();
+        }
+        if (redirectUri == null || redirectUri.isBlank()) {
+            return ResponseEntity.badRequest().build();
+        }
+        String location = "https://kauth.kakao.com/oauth/authorize?client_id="
+                + URLEncoder.encode(restApiKey, StandardCharsets.UTF_8)
+                + "&redirect_uri="
+                + URLEncoder.encode(redirectUri, StandardCharsets.UTF_8)
+                + "&response_type=code";
+        return ResponseEntity.status(302).header(HttpHeaders.LOCATION, location).build();
     }
 
     /**
