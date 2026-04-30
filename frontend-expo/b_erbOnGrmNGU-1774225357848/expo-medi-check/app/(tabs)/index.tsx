@@ -44,6 +44,8 @@ const MAP_ZOOM_ANIM_MS = 580
 /** 한 번 탭당 델타 변화 비율 (작을수록 한 단계가 작아져 더 자연스러움) */
 const MAP_ZOOM_IN_FACTOR = 0.78
 const MAP_ZOOM_OUT_FACTOR = 1.32
+/** GPS가 장시간 응답 없을 때 무한 로딩 방지용 타임아웃 */
+const GPS_FETCH_TIMEOUT_MS = 12000
 
 function coordsToLocation(lat: number, lng: number): Location.LocationObject {
   return {
@@ -60,6 +62,17 @@ function coordsToLocation(lat: number, lng: number): Location.LocationObject {
   }
 }
 
+async function getCurrentPositionWithTimeout(timeoutMs: number) {
+  return await Promise.race([
+    Location.getCurrentPositionAsync({
+      accuracy: Location.Accuracy.Highest,
+    }),
+    new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('GPS_TIMEOUT')), timeoutMs)
+    ),
+  ])
+}
+
 const kakaoMapAppKey =
   (Constants.expoConfig?.extra as { kakaoMapAppKey?: string } | undefined)
     ?.kakaoMapAppKey ?? ''
@@ -67,7 +80,12 @@ const kakaoMapAppKey =
 export default function MapScreen() {
   const router = useRouter()
   const insets = useSafeAreaInsets()
-  const useKakaoMap = kakaoMapAppKey.trim().length > 0
+  const showPresetTools = __DEV__
+  /**
+   * 안드로이드 릴리스에서 일부 기기/에뮬레이터의 react-native-maps 초기화 크래시를 피하기 위해
+   * 카카오 WebView 지도를 우선 사용한다. 키가 없으면 KakaoMapView 내부 안내 UI로 안전하게 폴백.
+   */
+  const useKakaoMap = Platform.OS === 'android' || kakaoMapAppKey.trim().length > 0
   const mapRef = useRef<MapView>(null)
   const kakaoMapRef = useRef<KakaoMapViewHandle>(null)
   const lastRegionRef = useRef<Region | null>(null)
@@ -122,9 +140,25 @@ export default function MapScreen() {
         return false
       }
 
-      const loc = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Highest,
-      })
+      let loc: Location.LocationObject | null = null
+      try {
+        loc = await getCurrentPositionWithTimeout(GPS_FETCH_TIMEOUT_MS)
+      } catch {
+        const lastKnown = await Location.getLastKnownPositionAsync({
+          maxAge: 120_000,
+          requiredAccuracy: 150,
+        })
+        if (lastKnown) {
+          loc = lastKnown
+        }
+      }
+      if (!loc) {
+        const msg =
+          '위치 확인이 지연되고 있습니다. 기기 위치 기능을 켜고 다시 시도해 주세요.'
+        if (hadLocation) Alert.alert('위치', msg)
+        else setErrorMsg(msg)
+        return false
+      }
       applyLocation(loc)
       return true
     } catch {
@@ -251,13 +285,17 @@ export default function MapScreen() {
             <Text style={styles.settingsBtnText}>설정 열기</Text>
           </TouchableOpacity>
         </View>
-        <Text style={styles.hintMuted}>
-          iOS 시뮬레이터: Features → Location → Custom Location → 위도 {PRESET_OKGYE_HEUNGAN_46_LAT},
-          경도 {PRESET_OKGYE_HEUNGAN_46_LNG} (옥계 흥안로 46 부근)
-        </Text>
-        <TouchableOpacity style={styles.gumiLink} onPress={handleUsePresetOkgye}>
-          <Text style={styles.gumiLinkText}>옥계 흥안로 46으로 이동 (테스트)</Text>
-        </TouchableOpacity>
+        {showPresetTools && (
+          <>
+            <Text style={styles.hintMuted}>
+              iOS 시뮬레이터: Features → Location → Custom Location → 위도{' '}
+              {PRESET_OKGYE_HEUNGAN_46_LAT}, 경도 {PRESET_OKGYE_HEUNGAN_46_LNG}
+            </Text>
+            <TouchableOpacity style={styles.gumiLink} onPress={handleUsePresetOkgye}>
+              <Text style={styles.gumiLinkText}>옥계 흥안로 46으로 이동 (테스트)</Text>
+            </TouchableOpacity>
+          </>
+        )}
       </View>
     )
   }
@@ -396,14 +434,16 @@ export default function MapScreen() {
           !isError &&
           (hospitals?.length ?? 0) === 0 && (
             <Text style={styles.zeroHint}>
-              이 반경에 등록된 병원이 없습니다. 반경을 넓히거나, 시뮬레이터 위치가 샌프란시스코
-              등 기본값이면 DB(한국)와 맞지 않을 수 있습니다. 「옥계 흥안로 테스트」로 맞춰 보세요.
+              이 반경에 등록된 병원이 없습니다. 반경을 넓히거나 현재 위치 권한/신호 상태를
+              확인해 주세요.
             </Text>
           )}
 
-        <TouchableOpacity style={styles.gumiMini} onPress={handleUsePresetOkgye}>
-          <Text style={styles.gumiMiniText}>옥계 흥안로 46으로 이동 (테스트)</Text>
-        </TouchableOpacity>
+        {showPresetTools && (
+          <TouchableOpacity style={styles.gumiMini} onPress={handleUsePresetOkgye}>
+            <Text style={styles.gumiMiniText}>옥계 흥안로 46으로 이동 (테스트)</Text>
+          </TouchableOpacity>
+        )}
 
         {isLoading ? (
           <ActivityIndicator size="small" color="#0EA5E9" />

@@ -114,6 +114,39 @@ export function buildKakaoMapHtml(
               }
             }
 
+            /** 현재 위치(파란 점) 마커 */
+            function currentLocationDataUrl() {
+              var S = 28;
+              var cx = S / 2;
+              var cy = S / 2;
+              var dpr = typeof window !== 'undefined' && window.devicePixelRatio ? window.devicePixelRatio : 2;
+              var canvas = document.createElement('canvas');
+              canvas.width = Math.round(S * dpr);
+              canvas.height = Math.round(S * dpr);
+              var ctx = canvas.getContext('2d');
+              if (!ctx) {
+                return 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+              }
+              ctx.scale(dpr, dpr);
+              ctx.clearRect(0, 0, S, S);
+              ctx.beginPath();
+              ctx.arc(cx, cy, 10, 0, Math.PI * 2);
+              ctx.fillStyle = 'rgba(14,165,233,0.25)';
+              ctx.fill();
+              ctx.beginPath();
+              ctx.arc(cx, cy, 5.2, 0, Math.PI * 2);
+              ctx.fillStyle = '#0284C7';
+              ctx.fill();
+              ctx.strokeStyle = '#ffffff';
+              ctx.lineWidth = 2;
+              ctx.stroke();
+              try {
+                return canvas.toDataURL('image/png');
+              } catch (e) {
+                return 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+              }
+            }
+
             var markers = [];
             HOSPITALS.forEach(function (h) {
               if (h.lat == null || h.lng == null || isNaN(h.lat) || isNaN(h.lng)) return;
@@ -164,6 +197,20 @@ export function buildKakaoMapHtml(
             } catch (cl) {
               markers.forEach(function (m) { m.setMap(map); });
             }
+
+            try {
+              var meImg = new kakao.maps.MarkerImage(
+                currentLocationDataUrl(),
+                new kakao.maps.Size(28, 28),
+                { offset: new kakao.maps.Point(14, 14) }
+              );
+              window.currentLocationMarker = new kakao.maps.Marker({
+                map: map,
+                position: new kakao.maps.LatLng(CENTER_LAT, CENTER_LNG),
+                title: '현재 위치',
+                image: meImg
+              });
+            } catch (meErr) {}
 
             send({ type: 'ready' });
           } catch (e) {
