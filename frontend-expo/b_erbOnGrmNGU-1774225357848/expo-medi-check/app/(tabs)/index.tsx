@@ -80,7 +80,11 @@ const kakaoMapAppKey =
 export default function MapScreen() {
   const router = useRouter()
   const insets = useSafeAreaInsets()
-  const useKakaoMap = kakaoMapAppKey.trim().length > 0
+  /**
+   * 안드로이드 릴리스에서 일부 기기/에뮬레이터의 react-native-maps 초기화 크래시를 피하기 위해
+   * 카카오 WebView 지도를 우선 사용한다. 키가 없으면 KakaoMapView 내부 안내 UI로 안전하게 폴백.
+   */
+  const useKakaoMap = Platform.OS === 'android' || kakaoMapAppKey.trim().length > 0
   const mapRef = useRef<MapView>(null)
   const kakaoMapRef = useRef<KakaoMapViewHandle>(null)
   const lastRegionRef = useRef<Region | null>(null)
