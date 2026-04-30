@@ -3,7 +3,7 @@
 # 필요한 GitHub Secrets (Repository → Settings → Secrets and variables → Actions):
 #   EC2_HOST          예: 1.2.3.4 또는 ec2-xx.compute.amazonaws.com
 #   EC2_USER          예: ubuntu, ec2-user
-#   EC2_SSH_KEY       EC2 접속용 개인 키 전체(PEM, 줄바꿈 포함)
+#   EC2_SSH_KEY       EC2 접속용 개인 키 전체(PEM, 줄바꿈 포함). Windows에서 복사 시 \r 제거함
 #   EC2_DEPLOY_PATH   서버에서 compose 파일이 있는 디렉터리 절대 경로 (예: /home/ubuntu/MediCheck)
 #
 # 서버에는 docker compose(v2)와, compose가 참조하는 backend/server/.env.prod 가 미리 있어야 합니다.
@@ -37,8 +37,13 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p "$HOME/.ssh"
-          printf '%s\n' "$SSH_KEY" > "$HOME/.ssh/ec2_deploy"
+          # PEM에 \r 이 섞이면 OpenSSL 3에서 "error in libcrypto" → 인증 실패로 이어짐
+          printf '%s\n' "$SSH_KEY" | tr -d '\r' > "$HOME/.ssh/ec2_deploy"
           chmod 600 "$HOME/.ssh/ec2_deploy"
+          if ! ssh-keygen -y -f "$HOME/.ssh/ec2_deploy" >/dev/null 2>&1; then
+            echo "::error::EC2_SSH_KEY를 읽을 수 없습니다. Secret에 PEM 전체(BEGIN~END)만 넣었는지, 앞뒤 따옴표·공백 없이 다시 저장해 보세요."
+            exit 1
+          fi
           ssh-keyscan -H "$SSH_HOST" >> "$HOME/.ssh/known_hosts" 2>/dev/null || true
 
       - name: Rsync backend & compose
