@@ -44,6 +44,8 @@ public class HospitalController {
 
     private static final int SIDO_CD_MAX_LENGTH = 20;
     private static final Pattern SIDO_CD_PATTERN = Pattern.compile("^[0-9]{1," + SIDO_CD_MAX_LENGTH + "}$");
+    private static final int SGGU_CD_MAX_LENGTH = 20;
+    private static final Pattern SGGU_CD_PATTERN = Pattern.compile("^[0-9]{1," + SGGU_CD_MAX_LENGTH + "}$");
 
     private final HospitalService hospitalService;
     private final HiraSyncService hiraSyncService;
@@ -190,10 +192,11 @@ public class HospitalController {
      * 구미(경북): sidoCd=470000
      * POST /api/hospitals/sync/region?sidoCd=470000&numOfRows=500
      */
-    @Operation(summary = "HIRA 시·도 동기화", description = "관리자 키 필요. sidoCd(예: 경북 470000) 단위로 HIRA 병원 목록을 동기화합니다.")
+    @Operation(summary = "HIRA 시·도/시군구 동기화", description = "관리자 키 필요. sidoCd(예: 경북 470000)와 선택 sgguCd(예: 구미) 기준으로 HIRA 병원 목록을 동기화합니다.")
     @PostMapping("/sync/region")
     public ResponseEntity<?> syncRegionFromHira(
             @RequestParam("sidoCd") String sidoCd,
+            @RequestParam(name = "sgguCd", required = false) String sgguCd,
             @RequestParam(defaultValue = "500") int numOfRows
     ) {
         String sanitized = sidoCd != null ? sidoCd.trim() : "";
@@ -203,8 +206,19 @@ public class HospitalController {
                     "message", "sidoCd는 1~20자리 숫자만 허용됩니다."
             ));
         }
+        String sanitizedSggu = sgguCd != null ? sgguCd.trim() : "";
+        if (!sanitizedSggu.isEmpty() && !SGGU_CD_PATTERN.matcher(sanitizedSggu).matches()) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "error", "invalid_sggu_cd",
+                    "message", "sgguCd는 1~20자리 숫자만 허용됩니다."
+            ));
+        }
         try {
-            SyncResult result = hiraSyncService.syncRegion(sanitized, numOfRows);
+            SyncResult result = hiraSyncService.syncRegion(
+                    sanitized,
+                    sanitizedSggu.isEmpty() ? null : sanitizedSggu,
+                    numOfRows
+            );
             return ResponseEntity.ok(result);
         } catch (Exception e) {
             String errorId = java.util.UUID.randomUUID().toString();

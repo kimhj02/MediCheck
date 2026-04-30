@@ -204,7 +204,7 @@ public class HiraSyncService {
      * @param sidoCd    시·도 코드 (예: 470000 경상북도)
      * @param numOfRows 페이지당 조회 건수
      */
-    public SyncResult syncRegion(String sidoCd, int numOfRows) {
+    public SyncResult syncRegion(String sidoCd, String sgguCd, int numOfRows) {
         boolean keyConfigured = hiraApiProperties.getServiceKey() != null
                 && !hiraApiProperties.getServiceKey().isBlank();
         if (!keyConfigured) {
@@ -224,7 +224,7 @@ public class HiraSyncService {
         while (pageNo <= MAX_PAGE) {
             List<HiraHospItem> items = hiraHospitalClient.getHospBasisList(
                     pageNo, numOfRows, sidoCd,
-                    null, null, null, null, null, null
+                    sgguCd, null, null, null, null, null
             );
 
             if (items.isEmpty()) {
@@ -239,8 +239,8 @@ public class HiraSyncService {
             totalSaved += saved;
             totalUpdated += updated;
 
-            log.info("HIRA 지역 동기화: sidoCd={}, pageNo={}, 조회={}, 신규={}, 갱신={}",
-                    sidoCd, pageNo, items.size(), saved, updated);
+                log.info("HIRA 지역 동기화: sidoCd={}, sgguCd={}, pageNo={}, 조회={}, 신규={}, 갱신={}",
+                        sidoCd, sgguCd, pageNo, items.size(), saved, updated);
             pageNo++;
         }
 
