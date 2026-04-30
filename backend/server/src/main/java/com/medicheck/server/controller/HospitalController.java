@@ -44,8 +44,8 @@ public class HospitalController {
 
     private static final int SIDO_CD_MAX_LENGTH = 20;
     private static final Pattern SIDO_CD_PATTERN = Pattern.compile("^[0-9]{1," + SIDO_CD_MAX_LENGTH + "}$");
-    private static final int SGGU_CD_MAX_LENGTH = 20;
-    private static final Pattern SGGU_CD_PATTERN = Pattern.compile("^[0-9]{1," + SGGU_CD_MAX_LENGTH + "}$");
+    /** HIRA 병원기본목록 API: 시군구 코드는 6자리 숫자 */
+    private static final Pattern SGGU_CD_PATTERN = Pattern.compile("^[0-9]{6}$");
 
     private final HospitalService hospitalService;
     private final HiraSyncService hiraSyncService;
@@ -190,9 +190,9 @@ public class HospitalController {
     /**
      * 지정 시·도 병원 정보만 HIRA에서 조회해 DB에 동기화합니다.
      * 구미(경북): sidoCd=470000
-     * POST /api/hospitals/sync/region?sidoCd=470000&numOfRows=500
+     * POST /api/hospitals/sync/region?sidoCd=470000&sgguCd=471900&numOfRows=500
      */
-    @Operation(summary = "HIRA 시·도/시군구 동기화", description = "관리자 키 필요. sidoCd(예: 경북 470000)와 선택 sgguCd(예: 구미) 기준으로 HIRA 병원 목록을 동기화합니다.")
+    @Operation(summary = "HIRA 시·도/시군구 동기화", description = "관리자 키 필요. sidoCd(예: 경북 470000)와 선택 sgguCd(예: 구미시 471900) 숫자 코드 기준으로 HIRA 병원 목록을 동기화합니다.")
     @PostMapping("/sync/region")
     public ResponseEntity<?> syncRegionFromHira(
             @RequestParam("sidoCd") String sidoCd,
@@ -210,7 +210,7 @@ public class HospitalController {
         if (!sanitizedSggu.isEmpty() && !SGGU_CD_PATTERN.matcher(sanitizedSggu).matches()) {
             return ResponseEntity.badRequest().body(Map.of(
                     "error", "invalid_sggu_cd",
-                    "message", "sgguCd는 1~20자리 숫자만 허용됩니다."
+                    "message", "sgguCd는 HIRA 명세에 따라 6자리 숫자만 허용됩니다."
             ));
         }
         try {

@@ -144,7 +144,10 @@ export default function MapScreen() {
       try {
         loc = await getCurrentPositionWithTimeout(GPS_FETCH_TIMEOUT_MS)
       } catch {
-        const lastKnown = await Location.getLastKnownPositionAsync()
+        const lastKnown = await Location.getLastKnownPositionAsync({
+          maxAge: 120_000,
+          requiredAccuracy: 150,
+        })
         if (lastKnown) {
           loc = lastKnown
         }

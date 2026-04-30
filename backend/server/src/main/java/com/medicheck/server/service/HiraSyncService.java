@@ -228,7 +228,7 @@ public class HiraSyncService {
             );
 
             if (items.isEmpty()) {
-                log.info("HIRA 지역 동기화 종료: sidoCd={}, pageNo={}", sidoCd, pageNo);
+                log.info("HIRA 지역 동기화 종료: sidoCd={}, sgguCd={}, pageNo={}", sidoCd, sgguCd, pageNo);
                 break;
             }
 
@@ -239,8 +239,8 @@ public class HiraSyncService {
             totalSaved += saved;
             totalUpdated += updated;
 
-                log.info("HIRA 지역 동기화: sidoCd={}, sgguCd={}, pageNo={}, 조회={}, 신규={}, 갱신={}",
-                        sidoCd, sgguCd, pageNo, items.size(), saved, updated);
+            log.info("HIRA 지역 동기화: sidoCd={}, sgguCd={}, pageNo={}, 조회={}, 신규={}, 갱신={}",
+                    sidoCd, sgguCd, pageNo, items.size(), saved, updated);
             pageNo++;
         }
 

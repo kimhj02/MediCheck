@@ -9,8 +9,13 @@ const extra = (Constants.expoConfig?.extra || {}) as {
   testPresetLng?: string
 }
 
-const parsedLat = Number(extra.testPresetLat)
-const parsedLng = Number(extra.testPresetLng)
+function parseCoord(raw: string | undefined, fallback: number): number {
+  if (raw == null) return fallback
+  const s = String(raw).trim()
+  if (s === '') return fallback
+  const n = Number(s)
+  return Number.isFinite(n) ? n : fallback
+}
 
-export const PRESET_OKGYE_HEUNGAN_46_LAT = Number.isFinite(parsedLat) ? parsedLat : 36.14715
-export const PRESET_OKGYE_HEUNGAN_46_LNG = Number.isFinite(parsedLng) ? parsedLng : 128.41799
+export const PRESET_OKGYE_HEUNGAN_46_LAT = parseCoord(extra.testPresetLat, 36.14715)
+export const PRESET_OKGYE_HEUNGAN_46_LNG = parseCoord(extra.testPresetLng, 128.41799)

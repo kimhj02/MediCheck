@@ -12,11 +12,7 @@
       "distribution": "internal",
       "env": {
         "EXPO_PUBLIC_API_URL": "https://www.medicheck.life/api",
-        "EXPO_PUBLIC_KAKAO_MAP_APP_KEY": "5812bc6645f94d3381a7c2fbc8c7ce3d",
-        "EXPO_PUBLIC_KAKAO_MAP_BASE_URL": "https://localhost",
-        "EXPO_PUBLIC_KAKAO_REST_API_KEY": "1ac14aba02108a0ac0f868459c321aa1",
-        "EXPO_PUBLIC_TEST_PRESET_LAT": "36.14715",
-        "EXPO_PUBLIC_TEST_PRESET_LNG": "128.41799"
+        "EXPO_PUBLIC_KAKAO_MAP_BASE_URL": "https://localhost"
       }
     },
     "production": {
