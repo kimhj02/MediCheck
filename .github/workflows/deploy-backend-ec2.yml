@@ -36,10 +36,10 @@ jobs:
           SSH_HOST: ${{ secrets.EC2_HOST }}
         run: |
           set -euo pipefail
-          mkdir -p ~/.ssh
-          echo "$SSH_KEY" > ~/.ssh/ec2_deploy
-          chmod 600 ~/.ssh/ec2_deploy
-          ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+          mkdir -p "$HOME/.ssh"
+          printf '%s\n' "$SSH_KEY" > "$HOME/.ssh/ec2_deploy"
+          chmod 600 "$HOME/.ssh/ec2_deploy"
+          ssh-keyscan -H "$SSH_HOST" >> "$HOME/.ssh/known_hosts" 2>/dev/null || true
 
       - name: Rsync backend & compose
         env:
@@ -48,13 +48,16 @@ jobs:
           REMOTE_BASE: ${{ secrets.EC2_DEPLOY_PATH }}
         run: |
           set -euo pipefail
-          RSYNC="rsync -az --delete -e ssh -i ~/.ssh/ec2_deploy -o StrictHostKeyChecking=yes"
-          $RSYNC \
+          # -i·-o 는 rsync가 아니라 ssh에만 넘기려면 -e "ssh ..." 한 덩어리로 묶어야 함
+          # (그렇지 않으면 rsync -i 가 itemize-changes로 해석되어 키가 전달되지 않음)
+          SSH_OPTS="-i ${HOME}/.ssh/ec2_deploy -o StrictHostKeyChecking=yes -o IdentitiesOnly=yes"
+          rsync -az --delete -e "ssh $SSH_OPTS" \
             --exclude 'build/' \
             --exclude '.gradle/' \
             --exclude '.idea/' \
             ./backend/server/ "${SSH_USER}@${SSH_HOST}:${REMOTE_BASE}/backend/server/"
-          $RSYNC ./docker-compose.aws.yml "${SSH_USER}@${SSH_HOST}:${REMOTE_BASE}/docker-compose.aws.yml"
+          rsync -az --delete -e "ssh $SSH_OPTS" \
+            ./docker-compose.aws.yml "${SSH_USER}@${SSH_HOST}:${REMOTE_BASE}/docker-compose.aws.yml"
 
       - name: Docker Compose up (backend)
         env:
@@ -63,6 +66,6 @@ jobs:
           REMOTE_BASE: ${{ secrets.EC2_DEPLOY_PATH }}
         run: |
           set -euo pipefail
-          ssh -i ~/.ssh/ec2_deploy -o StrictHostKeyChecking=yes \
+          ssh -i "${HOME}/.ssh/ec2_deploy" -o StrictHostKeyChecking=yes -o IdentitiesOnly=yes \
             "${SSH_USER}@${SSH_HOST}" \
             "set -euo pipefail; cd '${REMOTE_BASE}' && docker compose -f docker-compose.aws.yml up -d --build backend"
