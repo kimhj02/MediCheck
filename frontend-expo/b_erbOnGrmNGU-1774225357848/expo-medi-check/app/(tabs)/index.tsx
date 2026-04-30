@@ -44,6 +44,8 @@ const MAP_ZOOM_ANIM_MS = 580
 /** 한 번 탭당 델타 변화 비율 (작을수록 한 단계가 작아져 더 자연스러움) */
 const MAP_ZOOM_IN_FACTOR = 0.78
 const MAP_ZOOM_OUT_FACTOR = 1.32
+/** GPS가 장시간 응답 없을 때 무한 로딩 방지용 타임아웃 */
+const GPS_FETCH_TIMEOUT_MS = 12000
 
 function coordsToLocation(lat: number, lng: number): Location.LocationObject {
   return {
@@ -58,6 +60,17 @@ function coordsToLocation(lat: number, lng: number): Location.LocationObject {
     },
     timestamp: Date.now(),
   }
+}
+
+async function getCurrentPositionWithTimeout(timeoutMs: number) {
+  return await Promise.race([
+    Location.getCurrentPositionAsync({
+      accuracy: Location.Accuracy.Highest,
+    }),
+    new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('GPS_TIMEOUT')), timeoutMs)
+    ),
+  ])
 }
 
 const kakaoMapAppKey =
@@ -122,9 +135,22 @@ export default function MapScreen() {
         return false
       }
 
-      const loc = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Highest,
-      })
+      let loc: Location.LocationObject | null = null
+      try {
+        loc = await getCurrentPositionWithTimeout(GPS_FETCH_TIMEOUT_MS)
+      } catch {
+        const lastKnown = await Location.getLastKnownPositionAsync()
+        if (lastKnown) {
+          loc = lastKnown
+        }
+      }
+      if (!loc) {
+        const msg =
+          '위치 확인이 지연되고 있습니다. 기기 위치 기능을 켜고 다시 시도해 주세요.'
+        if (hadLocation) Alert.alert('위치', msg)
+        else setErrorMsg(msg)
+        return false
+      }
       applyLocation(loc)
       return true
     } catch {
