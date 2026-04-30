@@ -5,8 +5,9 @@
 #   EC2_USER          예: ubuntu, ec2-user
 #   EC2_SSH_KEY       EC2 접속용 개인 키 전체(PEM, 줄바꿈 포함). Windows에서 복사 시 \r 제거함
 #   EC2_DEPLOY_PATH   서버에서 compose 파일이 있는 디렉터리 절대 경로 (예: /home/ubuntu/MediCheck)
+#   EC2_ENV_PROD      (선택) backend/server/.env.prod 전체 내용(KEY=value 줄바꿈). 설정 시 매 배포마다 EC2에 기록
 #
-# EC2에 한 번 SSH로 backend/server/.env.prod 를 만들어 두세요(저장소에 올리지 않음).
+# EC2_ENV_PROD 가 비어 있으면 EC2에 미리 backend/server/.env.prod 가 있어야 합니다.
 # rsync는 .env* 를 제외해 서버의 env 파일이 --delete 로 지워지지 않게 합니다.
 
 name: Deploy backend (EC2)
@@ -67,6 +68,22 @@ jobs:
           rsync -az --delete -e "ssh $SSH_OPTS" \
             ./docker-compose.aws.yml "${SSH_USER}@${SSH_HOST}:${REMOTE_BASE}/docker-compose.aws.yml"
 
+      - name: Write .env.prod from Secret (optional)
+        env:
+          ENV_PROD: ${{ secrets.EC2_ENV_PROD }}
+          SSH_HOST: ${{ secrets.EC2_HOST }}
+          SSH_USER: ${{ secrets.EC2_USER }}
+          REMOTE_BASE: ${{ secrets.EC2_DEPLOY_PATH }}
+        run: |
+          set -euo pipefail
+          if [ -z "${ENV_PROD:-}" ]; then
+            echo "EC2_ENV_PROD Secret 없음 → EC2 기존 backend/server/.env.prod 사용"
+            exit 0
+          fi
+          SSH_OPTS="-i ${HOME}/.ssh/ec2_deploy -o StrictHostKeyChecking=yes -o IdentitiesOnly=yes"
+          printf '%s\n' "$ENV_PROD" | tr -d '\r' | ssh $SSH_OPTS "${SSH_USER}@${SSH_HOST}" \
+            "mkdir -p '${REMOTE_BASE}/backend/server' && cat > '${REMOTE_BASE}/backend/server/.env.prod' && chmod 600 '${REMOTE_BASE}/backend/server/.env.prod'"
+
       - name: Docker Compose up (backend)
         env:
           SSH_HOST: ${{ secrets.EC2_HOST }}
@@ -76,4 +93,4 @@ jobs:
           set -euo pipefail
           ssh -i "${HOME}/.ssh/ec2_deploy" -o StrictHostKeyChecking=yes -o IdentitiesOnly=yes \
             "${SSH_USER}@${SSH_HOST}" \
-            "set -euo pipefail; cd '${REMOTE_BASE}' && test -f backend/server/.env.prod || { echo '::error::EC2에 backend/server/.env.prod 가 없습니다. SSH로 생성한 뒤 다시 배포하세요.'; exit 1; } && docker compose -f docker-compose.aws.yml up -d --build backend"
+            "set -euo pipefail; cd '${REMOTE_BASE}' && test -f backend/server/.env.prod || { echo '::error::backend/server/.env.prod 가 없습니다. GitHub에 EC2_ENV_PROD Secret을 추가하거나, EC2에서 해당 파일을 만드세요.'; exit 1; } && docker compose -f docker-compose.aws.yml up -d --build backend"
