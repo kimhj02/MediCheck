@@ -2,10 +2,13 @@
 const path = require('path')
 try {
   // 웹 프론트(frontend)와 동일한 카카오 지도 키: VITE_KAKAO_APP_KEY
-  require('dotenv').config({ path: path.join(__dirname, '../../../frontend/.env') })
+  require('dotenv').config({
+    path: path.join(__dirname, '../../../frontend/.env'),
+    quiet: true,
+  })
 } catch (_) {}
 try {
-  require('dotenv').config()
+  require('dotenv').config({ quiet: true })
 } catch (_) {}
 
 const appJson = require('./app.json')
@@ -17,6 +20,9 @@ module.exports = {
     scheme: appJson.expo.scheme || 'medicheck',
     extra: {
       ...(appJson.expo.extra || {}),
+      eas: {
+        projectId: 'c0409b3e-1f1f-44af-a388-ba431ca0bf9b',
+      },
       /** 호스트만 넣어도 됨(예: http://192.168.x.x:8080) → 앱에서 자동으로 `/api` 붙임 */
       apiUrl: process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8080/api',
       /** 카카오맵 JS 키: Expo 전용 또는 웹과 동일한 VITE_KAKAO_APP_KEY. Web 플랫폼에 https://localhost 등록 */
