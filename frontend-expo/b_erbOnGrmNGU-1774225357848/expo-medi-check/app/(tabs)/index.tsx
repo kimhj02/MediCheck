@@ -80,6 +80,7 @@ const kakaoMapAppKey =
 export default function MapScreen() {
   const router = useRouter()
   const insets = useSafeAreaInsets()
+  const showPresetTools = __DEV__
   /**
    * 안드로이드 릴리스에서 일부 기기/에뮬레이터의 react-native-maps 초기화 크래시를 피하기 위해
    * 카카오 WebView 지도를 우선 사용한다. 키가 없으면 KakaoMapView 내부 안내 UI로 안전하게 폴백.
@@ -281,13 +282,17 @@ export default function MapScreen() {
             <Text style={styles.settingsBtnText}>설정 열기</Text>
           </TouchableOpacity>
         </View>
-        <Text style={styles.hintMuted}>
-          iOS 시뮬레이터: Features → Location → Custom Location → 위도 {PRESET_OKGYE_HEUNGAN_46_LAT},
-          경도 {PRESET_OKGYE_HEUNGAN_46_LNG} (옥계 흥안로 46 부근)
-        </Text>
-        <TouchableOpacity style={styles.gumiLink} onPress={handleUsePresetOkgye}>
-          <Text style={styles.gumiLinkText}>옥계 흥안로 46으로 이동 (테스트)</Text>
-        </TouchableOpacity>
+        {showPresetTools && (
+          <>
+            <Text style={styles.hintMuted}>
+              iOS 시뮬레이터: Features → Location → Custom Location → 위도{' '}
+              {PRESET_OKGYE_HEUNGAN_46_LAT}, 경도 {PRESET_OKGYE_HEUNGAN_46_LNG}
+            </Text>
+            <TouchableOpacity style={styles.gumiLink} onPress={handleUsePresetOkgye}>
+              <Text style={styles.gumiLinkText}>옥계 흥안로 46으로 이동 (테스트)</Text>
+            </TouchableOpacity>
+          </>
+        )}
       </View>
     )
   }
@@ -426,14 +431,16 @@ export default function MapScreen() {
           !isError &&
           (hospitals?.length ?? 0) === 0 && (
             <Text style={styles.zeroHint}>
-              이 반경에 등록된 병원이 없습니다. 반경을 넓히거나, 시뮬레이터 위치가 샌프란시스코
-              등 기본값이면 DB(한국)와 맞지 않을 수 있습니다. 「옥계 흥안로 테스트」로 맞춰 보세요.
+              이 반경에 등록된 병원이 없습니다. 반경을 넓히거나 현재 위치 권한/신호 상태를
+              확인해 주세요.
             </Text>
           )}
 
-        <TouchableOpacity style={styles.gumiMini} onPress={handleUsePresetOkgye}>
-          <Text style={styles.gumiMiniText}>옥계 흥안로 46으로 이동 (테스트)</Text>
-        </TouchableOpacity>
+        {showPresetTools && (
+          <TouchableOpacity style={styles.gumiMini} onPress={handleUsePresetOkgye}>
+            <Text style={styles.gumiMiniText}>옥계 흥안로 46으로 이동 (테스트)</Text>
+          </TouchableOpacity>
+        )}
 
         {isLoading ? (
           <ActivityIndicator size="small" color="#0EA5E9" />

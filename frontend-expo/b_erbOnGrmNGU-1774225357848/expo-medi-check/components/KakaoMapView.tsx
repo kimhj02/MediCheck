@@ -137,7 +137,11 @@ export const KakaoMapView = forwardRef<KakaoMapViewHandle, Props>(function Kakao
     const script = `(function(){
       try {
         if (window.kakaoMap && window.kakao && window.kakao.maps) {
-          window.kakaoMap.setCenter(new kakao.maps.LatLng(${centerLat}, ${centerLng}));
+          var p = new kakao.maps.LatLng(${centerLat}, ${centerLng});
+          window.kakaoMap.setCenter(p);
+          if (window.currentLocationMarker && typeof window.currentLocationMarker.setPosition === 'function') {
+            window.currentLocationMarker.setPosition(p);
+          }
         }
       } catch(e) {}
       true;
