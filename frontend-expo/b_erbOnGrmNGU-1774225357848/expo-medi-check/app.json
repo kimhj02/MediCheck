@@ -1,6 +1,7 @@
 {
   "expo": {
     "name": "MediCheck",
+    "owner": "snowrabbit",
     "slug": "medi-check",
     "scheme": "medicheck",
     "version": "1.0.0",

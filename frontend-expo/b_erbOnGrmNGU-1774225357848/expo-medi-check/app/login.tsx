@@ -14,6 +14,7 @@ import { useRouter } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import { useMutation } from '@tanstack/react-query'
 import Constants from 'expo-constants'
+import * as Crypto from 'expo-crypto'
 import * as AuthSession from 'expo-auth-session'
 import * as WebBrowser from 'expo-web-browser'
 import { useAuthStore } from '@/store/authStore'
@@ -28,9 +29,59 @@ function getKakaoRestApiKey(): string {
   return (extra?.kakaoRestApiKey ?? '').trim()
 }
 
-/** 카카오 리다이렉트 URL에서 code / error 파싱 (커스텀 스킴 등 URL 생성기 호환) */
+const KAKAO_OAUTH_CALLBACK_PATH = '/oauth/kakao/callback'
+
+/**
+ * EXPO_PUBLIC_API_URL(또는 extra.apiUrl)이 `https://도메인/api`일 때, 웹 SPA와 동일한 호스트를 뽑는다.
+ * 실기기 카카오 로그인은 `https://auth.expo.io` 프록시가 콜백 후 앱으로 넘기는 단계에서 자주 깨지므로,
+ * 운영 HTTPS 도메인이면 **웹과 같은** `/oauth/kakao/callback` 을 쓴다.
+ */
+function resolvePublicHttpsOriginFromApiBase(): string | null {
+  const fromEnv =
+    typeof process.env.EXPO_PUBLIC_API_URL === 'string'
+      ? process.env.EXPO_PUBLIC_API_URL.trim()
+      : ''
+  const fromExtra = (
+    Constants.expoConfig?.extra as { apiUrl?: string } | undefined
+  )?.apiUrl?.trim() ?? ''
+  const raw = fromEnv || fromExtra
+  if (!raw) return null
+  const base = raw.replace(/\/$/, '').replace(/\/api\/?$/i, '')
+  if (!/^https:\/\//i.test(base)) return null
+  if (/localhost|127\.0\.0\.1|10\.0\.2\.2/i.test(base)) return null
+  return base
+}
+
+/**
+ * 카카오 로그인 redirect_uri — 카카오 콘솔은 http(s)만 허용(exp:// 불가).
+ */
+function getKakaoOAuthRedirectUri(): string {
+  if (Platform.OS === 'web') {
+    return AuthSession.makeRedirectUri({ path: 'oauth/kakao/callback' })
+  }
+  const publicOrigin = resolvePublicHttpsOriginFromApiBase()
+  if (publicOrigin) {
+    return `${publicOrigin}${KAKAO_OAUTH_CALLBACK_PATH}`
+  }
+  const owner = Constants.expoConfig?.owner
+  const slug = Constants.expoConfig?.slug
+  if (typeof owner === 'string' && owner.trim() && typeof slug === 'string' && slug.trim()) {
+    return `https://auth.expo.io/@${owner.trim()}/${slug.trim()}`
+  }
+  try {
+    return AuthSession.getRedirectUrl()
+  } catch {
+    return 'https://auth.expo.io/@snowrabbit/medi-check'
+  }
+}
+
+/** Expo 인가 요청에 붙이는 state 접두사 — 웹 KakaoCallbackPage와 동일 문자열(접두)로 인앱 여부 판별 */
+const KAKAO_OAUTH_EXPO_STATE_PREFIX = 'medichek_expo_webauth'
+
+/** 카카오 리다이렉트 URL에서 code / state / error 파싱 (커스텀 스킴 등 URL 생성기 호환) */
 function parseKakaoCallbackUrl(url: string): {
   code?: string
+  state?: string
   error?: string
   errorDescription?: string
 } {
@@ -38,6 +89,7 @@ function parseKakaoCallbackUrl(url: string): {
     const u = new URL(url)
     return {
       code: u.searchParams.get('code') ?? undefined,
+      state: u.searchParams.get('state') ?? undefined,
       error: u.searchParams.get('error') ?? undefined,
       errorDescription: u.searchParams.get('error_description') ?? undefined,
     }
@@ -47,6 +99,7 @@ function parseKakaoCallbackUrl(url: string): {
     const params = new URLSearchParams(q.split('#')[0])
     return {
       code: params.get('code') ?? undefined,
+      state: params.get('state') ?? undefined,
       error: params.get('error') ?? undefined,
       errorDescription: params.get('error_description') ?? undefined,
     }
@@ -88,9 +141,10 @@ export default function LoginScreen() {
         )
       }
 
-      const redirectUri = AuthSession.makeRedirectUri({
-        path: 'oauth/kakao/callback',
-      })
+      const redirectUri = getKakaoOAuthRedirectUri()
+
+      /** 요청마다 nonce — 콜백 state와 정확히 일치할 때만 code 교환 */
+      const oauthState = `${KAKAO_OAUTH_EXPO_STATE_PREFIX}.${await Crypto.randomUUID()}`
 
       const authUrl =
         'https://kauth.kakao.com/oauth/authorize?' +
@@ -98,6 +152,7 @@ export default function LoginScreen() {
           client_id: kakaoRestApiKey,
           redirect_uri: redirectUri,
           response_type: 'code',
+          state: oauthState,
         }).toString()
 
       const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUri)
@@ -109,9 +164,8 @@ export default function LoginScreen() {
         throw new Error('카카오 로그인을 완료할 수 없습니다.')
       }
 
-      const { code, error, errorDescription } = parseKakaoCallbackUrl(
-        result.url
-      )
+      const { code, state: returnedState, error, errorDescription } =
+        parseKakaoCallbackUrl(result.url)
       if (error) {
         throw new Error(
           errorDescription || error || '카카오 인증에 실패했습니다.'
@@ -120,6 +174,11 @@ export default function LoginScreen() {
       if (!code) {
         throw new Error(
           '카카오 인가 코드가 없습니다. 카카오 콘솔의 Redirect URI가 앱과 동일한지 확인하세요.'
+        )
+      }
+      if (returnedState !== oauthState) {
+        throw new Error(
+          '카카오 OAuth state가 일치하지 않습니다. 다시 시도해 주세요.'
         )
       }
 

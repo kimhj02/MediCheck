@@ -3,18 +3,37 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { loginWithKakao } from '../api/auth'
 
+/** Expo `app/login.tsx` — `state`는 `${PREFIX}.${uuid}` 또는 구버전 고정값 */
+const KAKAO_OAUTH_EXPO_STATE_PREFIX = 'medichek_expo_webauth'
+
+function isExpoInAppKakaoOAuthState(state: string | null): boolean {
+  if (state == null) return false
+  return (
+    state === KAKAO_OAUTH_EXPO_STATE_PREFIX ||
+    state.startsWith(`${KAKAO_OAUTH_EXPO_STATE_PREFIX}.`)
+  )
+}
+
 export function KakaoCallbackPage() {
   const location = useLocation()
   const navigate = useNavigate()
   const { login: setAuth } = useAuth()
   const [error, setError] = useState<string | null>(null)
+  const [expoInAppShell, setExpoInAppShell] = useState(false)
 
   useEffect(() => {
     const params = new URLSearchParams(location.search)
     const code = params.get('code')
+    const state = params.get('state')
 
     if (!code) {
       setError('카카오에서 인증 코드를 받지 못했습니다.')
+      return
+    }
+
+    /** Expo WebBrowser 인앱 창: 앱이 `result.url`로 code 교환·로그인 처리. 여기서 웹 API·홈 이동 하면 전체 SPA가 뜸 */
+    if (isExpoInAppKakaoOAuthState(state)) {
+      setExpoInAppShell(true)
       return
     }
 
@@ -57,6 +76,10 @@ export function KakaoCallbackPage() {
               </button>
             </div>
           </>
+        ) : expoInAppShell ? (
+          <p className="text-sm text-gray-600">
+            앱에서 로그인을 마무리하고 있습니다. 잠시 후 이 창이 닫히면 앱 화면으로 돌아갑니다.
+          </p>
         ) : (
           <p className="text-sm text-gray-600">카카오 계정으로 로그인 중입니다...</p>
         )}

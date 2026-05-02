@@ -25,6 +25,11 @@ replay_pid*
 
 # IDE
 .vscode/
+.DS_Store
+
+# 로컬 비밀·덤프(저장소에 올리지 않음)
+*.pem
+medi_check_dump.sql
 
 # Deployment env files
 .env
