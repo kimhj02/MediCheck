@@ -24,7 +24,11 @@ import type { Hospital, Page } from '@/types'
 const SYMPTOM_QUERY_KEY_ROOT = 'hospitalsBySymptom' as const
 const NO_COORDS_SENTINEL = 'no-coords' as const
 
-type SymptomHospitalInfiniteData = InfiniteData<Page<Hospital>>
+type SymptomHospitalInfiniteData = InfiniteData<Page<Hospital>, number>
+
+type SymptomQueryKey =
+  | readonly [typeof SYMPTOM_QUERY_KEY_ROOT, string, number, number]
+  | readonly [typeof SYMPTOM_QUERY_KEY_ROOT, string, typeof NO_COORDS_SENTINEL]
 
 /**
  * coords가 나중에 잡히면 queryKey가 바뀌어도 이전 페이지를 유지(전면 로딩 방지).
@@ -32,7 +36,9 @@ type SymptomHospitalInfiniteData = InfiniteData<Page<Hospital>>
  */
 function symptomSearchPlaceholderData(
   previousData: SymptomHospitalInfiniteData | undefined,
-  previousQuery: Query | undefined,
+  previousQuery:
+    | Query<SymptomHospitalInfiniteData, Error, SymptomHospitalInfiniteData, SymptomQueryKey>
+    | undefined,
   symptomTrim: string,
   coords: { lat: number; lng: number } | null,
 ): SymptomHospitalInfiniteData | undefined {
@@ -128,18 +134,20 @@ export default function SymptomHospitalsScreen() {
     placeholderData: (previousData, previousQuery) =>
       symptomSearchPlaceholderData(
         previousData,
-        previousQuery,
+        previousQuery as
+          | Query<SymptomHospitalInfiniteData, Error, SymptomHospitalInfiniteData, SymptomQueryKey>
+          | undefined,
         symptomTrim,
         coords,
       ),
   })
 
   const allHospitals = useMemo(
-    () => hospitalPages?.pages.flatMap((p) => p.content) ?? [],
+    () => hospitalPages?.pages.flatMap((p: Page<Hospital>) => p.content) ?? [],
     [hospitalPages?.pages]
   )
 
-  const totalHits = hospitalPages?.pages[0]?.totalElements ?? 0
+  const totalHits = (hospitalPages?.pages[0] as Page<Hospital> | undefined)?.totalElements ?? 0
 
   const dedupedHospitals = useMemo(() => {
     const seen = new Set<number>()

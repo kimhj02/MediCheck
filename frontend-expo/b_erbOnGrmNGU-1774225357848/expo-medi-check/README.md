@@ -51,3 +51,16 @@ npm run start:sim
 3. `frontend/.env`의 `VITE_KAKAO_APP_KEY`를 쓰면 키는 자동 연동됩니다. Metro 재시작 후에도 회색이면 상단 빨간 안내 또는 `npx expo start --clear`로 캐시를 비워 보세요.
 
 키를 바꾼 뒤에는 `npx expo start --clear`로 캐시를 비우는 것이 안전합니다.
+
+## 카카오 로그인 (Expo Go · 실제 기기)
+
+카카오 **리다이렉트 URI**는 `http` / `https` 만 허용합니다. `exp://`·터널 주소는 콘솔에 등록할 수 없습니다.
+
+**권장:** `EXPO_PUBLIC_API_URL`이 `https://www.medicheck.life/api`처럼 **공개 HTTPS 도메인**이면, 앱은 네이티브에서도 웹과 동일하게  
+`https://www.medicheck.life/oauth/kakao/callback` 을 `redirect_uri`로 씁니다. 카카오·백엔드에 이미 등록한 주소와 맞추면 되고, `auth.expo.io` 프록시보다 안정적입니다.
+
+1. [카카오 디벨로퍼스](https://developers.kakao.com/) → **리다이렉트 URI**에 `https://<도메인>/oauth/kakao/callback` 등록 (웹과 동일).
+2. **백엔드** `KAKAO_OAUTH_ALLOWED_REDIRECT_URIS`에도 동일 문자열 포함.
+3. 로컬 API만 쓸 때(`http://localhost` 등)는 위 규칙이 안 되므로, 예전처럼 `https://auth.expo.io/@<owner>/<slug>` 폴백을 쓰려면 카카오·백엔드에 그 URL도 등록해야 합니다(프록시 단계에서 오류가 나기 쉬움).
+
+Metro 재시작(`npx expo start --clear`) 후 다시 로그인해 보세요.
