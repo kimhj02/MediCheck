@@ -1,0 +1,20 @@
+# PR에서 GitHub Actions가 정상 동작하는지 최소 검증합니다.
+# (EC2 배포는 deploy-backend-ec2.yml — main 푸시 또는 수동 실행)
+
+name: CI PR smoke
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check deploy workflow exists
+        run: test -f .github/workflows/deploy-backend-ec2.yml
+
+      - name: Backend Gradle wrapper present
+        run: test -x backend/server/gradlew
