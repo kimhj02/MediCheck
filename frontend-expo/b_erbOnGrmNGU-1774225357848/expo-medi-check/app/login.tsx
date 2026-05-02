@@ -13,7 +13,7 @@ import {
 import { useRouter } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import { useMutation } from '@tanstack/react-query'
-import Constants from 'expo-constants'
+import Constants, { ExecutionEnvironment } from 'expo-constants'
 import * as Crypto from 'expo-crypto'
 import * as AuthSession from 'expo-auth-session'
 import * as WebBrowser from 'expo-web-browser'
@@ -30,6 +30,12 @@ function getKakaoRestApiKey(): string {
 }
 
 const KAKAO_OAUTH_CALLBACK_PATH = '/oauth/kakao/callback'
+
+/**
+ * Standalone / Dev Client 전용. 호스트 `app`으로 두어 `new URL(...)` 파싱 시 pathname 이 `/oauth/kakao/callback` 이 되게 함.
+ * 카카오 디벨로퍼스·백엔드 KAKAO_OAUTH_ALLOWED_REDIRECT_URIS 에 문자 그대로 등록 필요.
+ */
+const KAKAO_OAUTH_NATIVE_APP_REDIRECT_URI = 'medicheck://app/oauth/kakao/callback'
 
 /**
  * EXPO_PUBLIC_API_URL(또는 extra.apiUrl)이 `https://도메인/api`일 때, 웹 SPA와 동일한 호스트를 뽑는다.
@@ -74,6 +80,22 @@ function getKakaoOAuthRedirectFromEnvOverride(): string | null {
 function getKakaoOAuthRedirectUri(): string {
   if (Platform.OS === 'web') {
     return AuthSession.makeRedirectUri({ path: 'oauth/kakao/callback' })
+  }
+  /**
+   * Expo Go(StoreClient)는 exp:// redirect 만 나와 카카오에 등록하기 어렵다 → https 콜백 유지.
+   * Standalone / Dev Client(Bare)는 앱 스킴으로 돌려 iOS ASWebAuthenticationSession 이 https SPA 로드 후에도
+   * 콜백을 앱에 넘기며 시트가 닫히도록 한다.
+   */
+  const exec = Constants.executionEnvironment
+  if (
+    exec === ExecutionEnvironment.Standalone ||
+    exec === ExecutionEnvironment.Bare
+  ) {
+    return AuthSession.makeRedirectUri({
+      native: KAKAO_OAUTH_NATIVE_APP_REDIRECT_URI,
+      scheme: 'medicheck',
+      path: 'oauth/kakao/callback',
+    })
   }
   const envRedirect = getKakaoOAuthRedirectFromEnvOverride()
   if (envRedirect) {
