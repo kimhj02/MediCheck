@@ -70,4 +70,4 @@ Metro 재시작(`npx expo start --clear`) 후 다시 로그인해 보세요.
 
 ### HTTPS 콜백 후 인증 시트가 안 닫힐 때 (운영 Docker 프론트)
 
-`frontend/nginx.conf` 는 쿼리 파라미터 `state` 가 Expo 접두(`medichek_expo_webauth`)이면 **React SPA 대신 짧은 HTML만** 돌려 iOS `ASWebAuthenticationSession` 이 **첫 응답에서** 끝나도록 합니다(`$arg_state` 검사). **호스트 Nginx만** 쓰고 Docker 앞단이 없다면, 동일한 `location = /oauth/kakao/callback` 규칙을 호스트 설정에도 넣어야 합니다.
+`frontend/nginx.conf` 는 `state` 가 Expo 접두(`medichek_expo_webauth`)이면 **`public/expo-kakao-oauth.html`** 로 내부 rewrite 해 SPA 번들을 타지 않게 합니다. **호스트 Nginx만** 쓰는 경우 동일 규칙·같은 정적 파일 서빙을 맞춰야 합니다.
