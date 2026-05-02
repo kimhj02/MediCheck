@@ -53,11 +53,31 @@ function resolvePublicHttpsOriginFromApiBase(): string | null {
 }
 
 /**
+ * API는 `www`인데 브라우저/카카오 콜백은 apex만 쓰는 경우가 많음.
+ * iOS 17.4+ `ASWebAuthenticationSession`은 redirect_uri 호스트와 실제 콜백 호스트가 같아야 세션이 끝남(안 맞으면 SPA만 뜨고 닫을 때 cancel).
+ */
+function getKakaoOAuthRedirectFromEnvOverride(): string | null {
+  const raw =
+    typeof process.env.EXPO_PUBLIC_KAKAO_OAUTH_REDIRECT_ORIGIN === 'string'
+      ? process.env.EXPO_PUBLIC_KAKAO_OAUTH_REDIRECT_ORIGIN.trim()
+      : ''
+  if (!raw) return null
+  const base = raw.replace(/\/$/, '')
+  if (!/^https:\/\//i.test(base)) return null
+  if (/localhost|127\.0\.0\.1|10\.0\.2\.2/i.test(base)) return null
+  return `${base}${KAKAO_OAUTH_CALLBACK_PATH}`
+}
+
+/**
  * 카카오 로그인 redirect_uri — 카카오 콘솔은 http(s)만 허용(exp:// 불가).
  */
 function getKakaoOAuthRedirectUri(): string {
   if (Platform.OS === 'web') {
     return AuthSession.makeRedirectUri({ path: 'oauth/kakao/callback' })
+  }
+  const envRedirect = getKakaoOAuthRedirectFromEnvOverride()
+  if (envRedirect) {
+    return envRedirect
   }
   const publicOrigin = resolvePublicHttpsOriginFromApiBase()
   if (publicOrigin) {
