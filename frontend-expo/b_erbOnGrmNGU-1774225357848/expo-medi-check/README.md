@@ -67,3 +67,7 @@ iOS `ASWebAuthenticationSession` 이 **https 콜백 페이지(SPA)까지 연 뒤
 3. 로컬 API만 쓸 때는 `https://auth.expo.io/@<owner>/<slug>` 폴백을 쓰려면 카카오·백엔드에 그 URL도 등록.
 
 Metro 재시작(`npx expo start --clear`) 후 다시 로그인해 보세요.
+
+### HTTPS 콜백 후 인증 시트가 안 닫힐 때 (운영 Docker 프론트)
+
+`frontend/nginx.conf` 는 쿼리에 Expo용 `state`(접두 `medichek_expo_webauth`)가 있으면 **React SPA 대신 짧은 HTML만** 돌려 iOS `ASWebAuthenticationSession` 이 **첫 응답에서** 끝나도록 합니다. **호스트 Nginx만** 쓰고 Docker 앞단이 없다면, 동일한 `map` / `location = /oauth/kakao/callback` 규칙을 호스트 설정에도 넣어야 합니다.
