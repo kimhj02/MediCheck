@@ -3,8 +3,16 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { loginWithKakao } from '../api/auth'
 
-/** Expo `app/login.tsx` 카카오 인가 URL의 `state` 와 반드시 동일 */
-const KAKAO_OAUTH_STATE_EXPO_WEBAUTH = 'medichek_expo_webauth'
+/** Expo `app/login.tsx` — `state`는 `${PREFIX}.${uuid}` 또는 구버전 고정값 */
+const KAKAO_OAUTH_EXPO_STATE_PREFIX = 'medichek_expo_webauth'
+
+function isExpoInAppKakaoOAuthState(state: string | null): boolean {
+  if (state == null) return false
+  return (
+    state === KAKAO_OAUTH_EXPO_STATE_PREFIX ||
+    state.startsWith(`${KAKAO_OAUTH_EXPO_STATE_PREFIX}.`)
+  )
+}
 
 export function KakaoCallbackPage() {
   const location = useLocation()
@@ -24,7 +32,7 @@ export function KakaoCallbackPage() {
     }
 
     /** Expo WebBrowser 인앱 창: 앱이 `result.url`로 code 교환·로그인 처리. 여기서 웹 API·홈 이동 하면 전체 SPA가 뜸 */
-    if (state === KAKAO_OAUTH_STATE_EXPO_WEBAUTH) {
+    if (isExpoInAppKakaoOAuthState(state)) {
       setExpoInAppShell(true)
       return
     }
