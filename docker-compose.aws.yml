@@ -16,6 +16,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
+        # 빌드 시 주입 — 비어 있으면 운영 지도·JS키가 동작하지 않음(EC2 루트 .env 또는 export)
         VITE_KAKAO_APP_KEY: ${VITE_KAKAO_APP_KEY:-}
         VITE_KAKAO_OAUTH_REDIRECT_ORIGIN: ${VITE_KAKAO_OAUTH_REDIRECT_ORIGIN:-https://medicheck.life}
     depends_on:
