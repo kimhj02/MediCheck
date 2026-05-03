@@ -2,8 +2,9 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { Hospital } from '@/types'
 import {
+  countHiraEvaluationEntries,
   getEvaluationStarScore,
-  getHiraEvaluationRows,
+  getHiraGradeAverageAsStarFill,
 } from '@/lib/hiraEvaluation'
 
 interface HospitalCardProps {
@@ -31,8 +32,10 @@ export default function HospitalCard({
   const hiraEval = hospital.evaluation
   const hiraStarAvg =
     hiraEval != null ? getEvaluationStarScore(hiraEval) : null
+  const hiraStarFill =
+    hiraStarAvg != null ? getHiraGradeAverageAsStarFill(hiraStarAvg) : null
   const hiraRowCount =
-    hiraEval != null ? getHiraEvaluationRows(hiraEval).length : 0
+    hiraEval != null ? countHiraEvaluationEntries(hiraEval) : 0
   const showHiraOnCard =
     hiraEval != null && (hiraStarAvg != null || hiraRowCount > 0)
 
@@ -90,19 +93,21 @@ export default function HospitalCard({
           <View style={styles.hiraRow}>
             <Ionicons name="ribbon-outline" size={14} color="#0284C7" />
             <Text style={styles.hiraLabel}>심평원</Text>
-            {hiraStarAvg != null ? (
+            {hiraStarFill != null ? (
               <>
                 <View style={styles.hiraStars}>
                   {[1, 2, 3, 4, 5].map((i) => (
                     <Ionicons
                       key={i}
-                      name={i <= hiraStarAvg ? 'star' : 'star-outline'}
+                      name={i <= hiraStarFill ? 'star' : 'star-outline'}
                       size={12}
                       color="#0284C7"
                     />
                   ))}
                 </View>
-                <Text style={styles.hiraHint}>등급 평균</Text>
+                <Text style={styles.hiraHint}>
+                  등급 평균 {hiraStarAvg} (1이 우수)
+                </Text>
               </>
             ) : (
               <Text style={styles.hiraFallback}>등급 {hiraRowCount}항목</Text>

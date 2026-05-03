@@ -4,14 +4,16 @@ import type { HospitalEvaluationSummary } from '@/types'
 import {
   getEvaluationStarScore,
   getHiraEvaluationRows,
+  getHiraGradeAverageAsStarFill,
 } from '@/lib/hiraEvaluation'
 
 type Props = {
   evaluation: HospitalEvaluationSummary | null | undefined
 }
 
-function HiraStarRow({ score }: { score: number }) {
-  const filled = Math.min(5, Math.max(1, Math.round(score)))
+function HiraStarRow({ gradeAverage }: { gradeAverage: number }) {
+  const rounded = Math.min(5, Math.max(1, Math.round(gradeAverage)))
+  const filled = getHiraGradeAverageAsStarFill(gradeAverage)
   return (
     <View style={styles.starRow}>
       {[1, 2, 3, 4, 5].map((i) => (
@@ -22,7 +24,9 @@ function HiraStarRow({ score }: { score: number }) {
           color="#0284C7"
         />
       ))}
-      <Text style={styles.starScoreText}>(1~5 등급 평균 {filled})</Text>
+      <Text style={styles.starScoreText}>
+        (등급 평균 {rounded}, 1등급이 가장 우수)
+      </Text>
     </View>
   )
 }
@@ -57,7 +61,7 @@ export function HiraEvaluationSection({ evaluation }: Props) {
       {score != null ? (
         <View style={styles.summaryBlock}>
           <Text style={styles.summaryLabel}>항목 등급 요약</Text>
-          <HiraStarRow score={score} />
+          <HiraStarRow gradeAverage={score} />
         </View>
       ) : rows.length > 0 ? (
         <Text style={styles.mutedSmall}>

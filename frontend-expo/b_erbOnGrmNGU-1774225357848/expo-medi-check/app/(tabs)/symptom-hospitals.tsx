@@ -1,6 +1,7 @@
 import { useState, useCallback, useMemo, useEffect } from 'react'
 import {
   useInfiniteQuery,
+  useQuery,
   keepPreviousData,
   type InfiniteData,
   type Query,
@@ -24,12 +25,13 @@ import { useRouter } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import * as Location from 'expo-location'
 import { Ionicons } from '@expo/vector-icons'
-import { getHospitalsBySymptom } from '@/lib/api'
+import { getHospitalsBySymptom, getSymptomPickerKeywords } from '@/lib/api'
 import { SYMPTOM_PICKER_LABELS } from '@/lib/symptomPickerLabels'
 import HospitalCard from '@/components/HospitalCard'
 import type { Hospital, Page } from '@/types'
 
 const SYMPTOM_QUERY_KEY_ROOT = 'hospitalsBySymptom' as const
+const SYMPTOM_KEYWORDS_QUERY_KEY = ['symptomPickerKeywords'] as const
 const NO_COORDS_SENTINEL = 'no-coords' as const
 
 type SymptomHospitalInfiniteData = InfiniteData<Page<Hospital>, number>
@@ -133,14 +135,28 @@ export default function SymptomHospitalsScreen() {
     }
   }, [])
 
+  const { data: serverPickerKeywords } = useQuery({
+    queryKey: SYMPTOM_KEYWORDS_QUERY_KEY,
+    queryFn: getSymptomPickerKeywords,
+    staleTime: 10 * 60 * 1000,
+  })
+
   const symptomTrim = symptom.trim()
   const symptomReady = symptomTrim.length >= 2
 
+  /** 서버 Top5 질병명 목록 우선, 실패·빈 응답 시 번들 정적 목록 */
+  const pickerKeywords = useMemo(() => {
+    if (Array.isArray(serverPickerKeywords) && serverPickerKeywords.length > 0) {
+      return serverPickerKeywords
+    }
+    return [...SYMPTOM_PICKER_LABELS]
+  }, [serverPickerKeywords])
+
   const filteredPickerKeywords = useMemo(() => {
     const f = pickerFilter.trim().toLowerCase()
-    if (!f) return [...SYMPTOM_PICKER_LABELS]
-    return SYMPTOM_PICKER_LABELS.filter((k) => k.toLowerCase().includes(f))
-  }, [pickerFilter])
+    if (!f) return [...pickerKeywords]
+    return pickerKeywords.filter((k) => k.toLowerCase().includes(f))
+  }, [pickerKeywords, pickerFilter])
 
   const pickerModalListMaxHeight = useMemo(() => {
     if (pickerKeyboardHeight <= 0) {
@@ -417,7 +433,8 @@ export default function SymptomHospitalsScreen() {
               </TouchableOpacity>
             </View>
             <Text style={styles.modalSubtitle}>
-              앱에 포함된 질병명만 표시됩니다. 아래에서 검색할 수 있습니다.
+              서버에 동기화된 질병명을 우선 표시합니다. 불러오지 못하면 앱에 포함된 목록을
+              사용합니다. 아래에서 검색할 수 있습니다.
             </Text>
             <View style={styles.modalSearchWrap}>
               <Ionicons name="search" size={18} color="#94A3B8" />
