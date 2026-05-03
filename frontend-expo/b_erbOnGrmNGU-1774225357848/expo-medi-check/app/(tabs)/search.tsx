@@ -47,6 +47,9 @@ const RADIUS_KM_OPTIONS = [
 
 const DEFAULT_RADIUS_METERS = 3000
 
+/** 검색 반경 플로팅 트리거 — 정원 */
+const RADIUS_FAB_SIZE = 64
+
 function normalizeSearchInput(s: string): string {
   return s
     .replace(/[\u200B-\u200D\uFEFF]/g, '')
@@ -187,8 +190,8 @@ export default function SearchScreen() {
     setKeyword(text)
   }, [])
 
-  /** 탭 바 바로 위까지 내려 쓰기 — 홈 인디케이터는 insets.bottom으로 확보 */
-  const fabBottom = 2 + insets.bottom
+  /** 테스트: 하단에 최대한 붙임(안전 영역만). 커밋 전 여백 조정 권장 */
+  const fabBottom = insets.bottom
   const fabRight = 12
 
   const listLoading = locPending || (nearbyLoading && nearbyRaw === undefined)
@@ -360,11 +363,10 @@ export default function SearchScreen() {
           accessibilityRole="button"
           accessibilityLabel={`검색 반경 ${radiusLabel(radiusMeters)}, 탭하면 변경`}
         >
-          <Ionicons name="locate" size={18} color="#FFFFFF" />
+          <Ionicons name="locate" size={22} color="#FFFFFF" />
           <Text style={styles.radiusFabTriggerLabel} numberOfLines={1}>
             {radiusLabel(radiusMeters)}
           </Text>
-          <Ionicons name="chevron-up" size={16} color="#FFFFFF" style={styles.radiusFabChevron} />
         </TouchableOpacity>
       </View>
 
@@ -379,7 +381,7 @@ export default function SearchScreen() {
           <View
             style={[
               styles.radiusMenuCard,
-              { bottom: fabBottom + 52, right: fabRight },
+              { bottom: fabBottom + RADIUS_FAB_SIZE + 10, right: fabRight },
             ]}
           >
             <Text style={styles.radiusMenuTitle}>검색 반경</Text>
@@ -448,14 +450,14 @@ const styles = StyleSheet.create({
     zIndex: 20,
   },
   radiusFabTrigger: {
-    flexDirection: 'row',
+    width: RADIUS_FAB_SIZE,
+    height: RADIUS_FAB_SIZE,
+    borderRadius: RADIUS_FAB_SIZE / 2,
+    backgroundColor: '#0EA5E9',
+    flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    backgroundColor: '#0EA5E9',
-    borderRadius: 24,
+    gap: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.18,
@@ -463,15 +465,12 @@ const styles = StyleSheet.create({
     elevation: 10,
   },
   radiusFabTriggerLabel: {
-    fontSize: 14,
-    fontWeight: '700',
+    fontSize: 11,
+    fontWeight: '800',
     color: '#FFFFFF',
-    minWidth: 40,
+    letterSpacing: -0.2,
     textAlign: 'center',
-  },
-  radiusFabChevron: {
-    marginLeft: -2,
-    opacity: 0.95,
+    maxWidth: RADIUS_FAB_SIZE - 8,
   },
   radiusMenuOverlay: {
     flex: 1,
