@@ -129,12 +129,37 @@ export function MapPage() {
   )
 
   if (mapError) {
+    const isProdHost =
+      typeof window !== 'undefined' &&
+      !/localhost|127\.0\.0\.1/i.test(window.location.hostname)
     return (
       <div className="flex items-center justify-center min-h-[50vh] p-6">
         <div className="text-center max-w-md">
           <div className="text-red-500 font-medium">카카오 지도 로드 실패</div>
-          <p className="mt-2 text-sm text-gray-500">
-            .env에 VITE_KAKAO_APP_KEY를 설정하고 카카오 디벨로퍼스에 localhost:5173을 등록하세요.
+          <p className="mt-2 text-sm text-gray-600">{mapError}</p>
+          <p className="mt-3 text-sm text-gray-500">
+            {isProdHost ? (
+              <>
+                EC2에서 프론트 이미지를 빌드할 때{' '}
+                <code className="text-xs bg-gray-100 px-1 rounded">VITE_KAKAO_APP_KEY</code>가
+                전달되어야 합니다. 저장소 루트 <code className="text-xs bg-gray-100 px-1 rounded">.env</code>
+                에 해당 값을 넣거나 <code className="text-xs bg-gray-100 px-1 rounded">export</code> 한 뒤{' '}
+                <code className="text-xs bg-gray-100 px-1 rounded">
+                  docker compose ... build --no-cache frontend
+                </code>
+                를 다시 실행하세요. 카카오 디벨로퍼스 &gt; 내 애플리케이션 &gt; 플랫폼 &gt; Web 에{' '}
+                <code className="text-xs bg-gray-100 px-1 rounded">https://medicheck.life</code>
+                (및 사용 중인 도메인)을 등록하세요.
+              </>
+            ) : (
+              <>
+                <code className="text-xs bg-gray-100 px-1 rounded">frontend/.env</code>에{' '}
+                <code className="text-xs bg-gray-100 px-1 rounded">VITE_KAKAO_APP_KEY</code>를 설정하고,
+                카카오 디벨로퍼스 Web 플랫폼에{' '}
+                <code className="text-xs bg-gray-100 px-1 rounded">http://localhost:5173</code>을
+                등록하세요.
+              </>
+            )}
           </p>
         </div>
       </div>
