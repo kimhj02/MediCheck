@@ -9,7 +9,7 @@ import {
   View,
   Text,
   StyleSheet,
-  TextInput,
+  ScrollView,
   FlatList,
   TouchableOpacity,
   ActivityIndicator,
@@ -23,6 +23,47 @@ import type { Hospital, Page } from '@/types'
 
 const SYMPTOM_QUERY_KEY_ROOT = 'hospitalsBySymptom' as const
 const NO_COORDS_SENTINEL = 'no-coords' as const
+
+/**
+ * 심평원 진료 상위 질병명 매칭용 — 자주 찾는 증상·질환 라벨(검색어와 동일 문자열 전달)
+ */
+const SYMPTOM_CHOICES = [
+  '감기',
+  '기침',
+  '인후통',
+  '콧물',
+  '코막힘',
+  '두통',
+  '편두통',
+  '어지럼증',
+  '발열',
+  '가슴통증',
+  '두근거림',
+  '호흡곤란',
+  '복통',
+  '상복통',
+  '소화불량',
+  '설사',
+  '변비',
+  '구토',
+  '메스꺼움',
+  '요통',
+  '목통증',
+  '무릎통증',
+  '관절통',
+  '근육통',
+  '피부가려움',
+  '두드러기',
+  '습진',
+  '알레르기',
+  '불면',
+  '우울',
+  '불안',
+  '눈충혈',
+  '시야흐림',
+  '귀통증',
+  '이명',
+] as const
 
 type SymptomHospitalInfiniteData = InfiniteData<Page<Hospital>, number>
 
@@ -98,6 +139,10 @@ export default function SymptomHospitalsScreen() {
   const symptomTrim = symptom.trim()
   const symptomReady = symptomTrim.length >= 2
 
+  const handleSymptomChoice = useCallback((label: string) => {
+    setSymptom((prev) => (prev.trim() === label ? '' : label))
+  }, [])
+
   const symptomQueryKey = useMemo(
     () =>
       coords != null
@@ -171,47 +216,55 @@ export default function SymptomHospitalsScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.headerBlock}>
-        <View style={styles.symptomInputWrapper}>
-          <Ionicons
-            name="medkit-outline"
-            size={22}
-            color="#0EA5E9"
-            style={styles.symptomIcon}
-          />
-          <TextInput
-            style={styles.symptomInput}
-            placeholder="증상·질환을 입력하세요 (예: 두통, 감기)"
-            placeholderTextColor="#94A3B8"
-            value={symptom}
-            onChangeText={setSymptom}
-            returnKeyType="search"
-            multiline={false}
-          />
-          {symptom.length > 0 && (
-            <TouchableOpacity
-              accessibilityRole="button"
-              accessibilityLabel="증상 입력 지우기"
-              onPress={() => setSymptom('')}
-            >
-              <Ionicons name="close-circle" size={22} color="#94A3B8" />
-            </TouchableOpacity>
-          )}
+        <View style={styles.symptomPickerHeader}>
+          <Ionicons name="medkit-outline" size={22} color="#0EA5E9" />
+          <Text style={styles.symptomPickerTitle}>증상 선택</Text>
         </View>
+        <ScrollView
+          style={styles.symptomScroll}
+          contentContainerStyle={styles.symptomScrollContent}
+          showsVerticalScrollIndicator
+          keyboardShouldPersistTaps="handled"
+          nestedScrollEnabled
+        >
+          {SYMPTOM_CHOICES.map((label) => {
+            const selected = symptomTrim === label
+            return (
+              <TouchableOpacity
+                key={label}
+                style={[styles.symptomRow, selected && styles.symptomRowSelected]}
+                onPress={() => handleSymptomChoice(label)}
+                activeOpacity={0.75}
+                accessibilityRole="button"
+                accessibilityState={{ selected }}
+                accessibilityLabel={`증상 ${label}${selected ? ', 선택됨. 다시 누르면 해제' : ''}`}
+              >
+                <Text style={[styles.symptomRowLabel, selected && styles.symptomRowLabelSelected]}>
+                  {label}
+                </Text>
+                {selected ? (
+                  <Ionicons name="checkmark-circle" size={22} color="#0EA5E9" />
+                ) : (
+                  <Ionicons name="chevron-forward" size={20} color="#CBD5E1" />
+                )}
+              </TouchableOpacity>
+            )
+          })}
+        </ScrollView>
         <Text style={styles.hint}>
-          심평원에 동기화된 병원의 「진료 상위 5개 질병명」과 비교합니다. 공백·쉼표로 여러
-          키워드를 넣을 수 있으며, 2자 이상일 때 검색이 시작됩니다. 결과는 매칭된 순위가 더
-          높은 병원(1위→5위)이 먼저 오고,
+          아래에서 증상·질환을 한 가지 고르면 검색이 시작됩니다. 같은 항목을 다시 누르면
+          선택이 해제됩니다. 심평원 「진료 상위 5개 질병명」과 비교하며, 매칭 순위가 높은
+          병원이 먼저 나옵니다.
           {coords != null
             ? ' 같은 순위는 현재 위치 기준 가까운 순입니다.'
-            : ' 위치 권한을 허용하면 같은 순위를 가까운 순으로 정렬합니다(미허용 시 거리 정렬 없음).'}
-          Top5가 없는 병원은 결과에 나오지 않을 수 있습니다.
+            : ' 위치 권한을 허용하면 같은 순위를 가까운 순으로 정렬합니다.'}
         </Text>
       </View>
 
       <View style={styles.resultHeader}>
         <Text style={styles.resultCount}>
           {!symptomReady
-            ? '증상을 2자 이상 입력해 주세요'
+            ? '증상을 목록에서 선택해 주세요'
             : listLoading
               ? '검색 중…'
               : showFullScreenLoadError
@@ -236,12 +289,9 @@ export default function SymptomHospitalsScreen() {
 
       {!symptomReady ? (
         <View style={styles.centered}>
-          <Ionicons name="pulse-outline" size={52} color="#CBD5E1" />
-          <Text style={styles.emptyTitle}>증상별 병원 찾기</Text>
-          <Text style={styles.emptyText}>
-            위 칸에 증상이나 질환명을 입력하면, 해당 병원의 진료 상위 5개 질병 데이터와 맞는
-            곳만 보여 드립니다.
-          </Text>
+          <Ionicons name="list-outline" size={48} color="#CBD5E1" />
+          <Text style={styles.emptyTitle}>병원 목록이 여기에 표시됩니다</Text>
+          <Text style={styles.emptyText}>위 목록에서 증상을 한 가지 선택해 주세요.</Text>
         </View>
       ) : listLoading ? (
         <View style={styles.centered}>
@@ -268,6 +318,7 @@ export default function SymptomHospitalsScreen() {
         </View>
       ) : (
         <FlatList
+          style={styles.hospitalList}
           data={dedupedHospitals}
           keyExtractor={(item) => String(item.id)}
           renderItem={({ item }) => (
@@ -309,31 +360,55 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8FAFC',
   },
   headerBlock: {
-    padding: 16,
-    paddingBottom: 12,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 10,
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
     borderBottomColor: '#E2E8F0',
   },
-  symptomInputWrapper: {
+  symptomPickerHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F0F9FF',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#BAE6FD',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    gap: 8,
+    marginBottom: 8,
   },
-  symptomIcon: {
-    marginRight: 10,
-  },
-  symptomInput: {
-    flex: 1,
-    minHeight: 44,
-    fontSize: 16,
+  symptomPickerTitle: {
+    fontSize: 17,
+    fontWeight: '700',
     color: '#1E293B',
-    fontWeight: '500',
+  },
+  symptomScroll: {
+    maxHeight: 240,
+    marginHorizontal: -4,
+  },
+  symptomScrollContent: {
+    paddingBottom: 4,
+  },
+  symptomRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    marginBottom: 4,
+    borderRadius: 12,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  symptomRowSelected: {
+    backgroundColor: '#F0F9FF',
+    borderColor: '#7DD3FC',
+  },
+  symptomRowLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#334155',
+    flex: 1,
+  },
+  symptomRowLabelSelected: {
+    color: '#0369A1',
   },
   hint: {
     marginTop: 10,
@@ -391,6 +466,9 @@ const styles = StyleSheet.create({
     color: '#94A3B8',
     textAlign: 'center',
     lineHeight: 22,
+  },
+  hospitalList: {
+    flex: 1,
   },
   listContent: {
     paddingHorizontal: 16,
