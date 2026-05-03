@@ -33,7 +33,8 @@ const { height } = Dimensions.get('window')
 
 const SHEET_MIN_H = height * 0.22
 const SHEET_MAX_H = height * 0.78
-const SHEET_DEFAULT_H = height * 0.42
+/** 첫 진입 시 지도(현재 위치)가 잘 보이도록 시트를 낮게 시작 — 필요 시 핸들로 위로 당김 */
+const SHEET_DEFAULT_H = height * 0.3
 
 /** FlatList scrollToIndex용 대략적 행 높이(카드+margin) — onScrollToIndexFailed 시에도 사용 */
 const ESTIMATED_HOSPITAL_LIST_ROW = 200
