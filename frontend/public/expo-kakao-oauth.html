@@ -6,6 +6,41 @@
   <title>MediCheck</title>
 </head>
 <body style="margin:0;padding:24px;font-family:system-ui,sans-serif;color:#475569;font-size:15px;line-height:1.5">
-  앱에서 로그인을 마무리하고 있습니다. 잠시 후 이 창이 닫히면 앱 화면으로 돌아갑니다.
+  <p id="msg">앱으로 돌아가는 중입니다…</p>
+  <script>
+(function () {
+  var msg = document.getElementById('msg');
+  try {
+    var q = new URLSearchParams(window.location.search);
+    var code = q.get('code');
+    var state = q.get('state');
+    if (q.get('error')) {
+      if (msg) msg.textContent = '로그인에 문제가 있습니다. 이 창을 닫고 앱에서 다시 시도해 주세요.';
+      return;
+    }
+    if (!code || !state) {
+      if (msg) msg.textContent = '앱에서 로그인을 마무리하고 있습니다. 잠시 후 이 창이 닫히면 앱 화면으로 돌아갑니다.';
+      return;
+    }
+    var prefix = 'medichek_expo_webauth__';
+    if (state.indexOf(prefix) !== 0) {
+      if (msg) msg.textContent = '앱에서 로그인을 마무리하고 있습니다. 잠시 후 이 창이 닫히면 앱 화면으로 돌아갑니다.';
+      return;
+    }
+    var rest = state.slice(prefix.length);
+    var ix = rest.lastIndexOf('__');
+    if (ix < 0) return;
+    var enc = rest.slice(0, ix);
+    var expBase = decodeURIComponent(enc);
+    if (!expBase || expBase.indexOf('exp://') !== 0) return;
+    var join = expBase.indexOf('?') >= 0 ? '&' : '?';
+    window.location.replace(
+      expBase + join + 'code=' + encodeURIComponent(code) + '&state=' + encodeURIComponent(state)
+    );
+  } catch (e) {
+    if (msg) msg.textContent = '앱으로 돌아가지 못했습니다. 이 창을 닫은 뒤 앱에서 다시 시도해 주세요.';
+  }
+})();
+  </script>
 </body>
 </html>

@@ -16,6 +16,7 @@ import { useMutation } from '@tanstack/react-query'
 import Constants, { ExecutionEnvironment } from 'expo-constants'
 import * as Crypto from 'expo-crypto'
 import * as AuthSession from 'expo-auth-session'
+import * as Linking from 'expo-linking'
 import * as WebBrowser from 'expo-web-browser'
 import { useAuthStore } from '@/store/authStore'
 import { login, getMe, loginWithKakao } from '@/lib/api'
@@ -75,6 +76,53 @@ function getKakaoOAuthRedirectFromEnvOverride(): string | null {
 }
 
 /**
+ * Expo AuthSession 프록시 base (`https://auth.expo.io/@owner/slug`).
+ * `Constants.expoConfig.originalFullName` 기준이라 `getRedirectUrl()` 우선(카카오 등록 URI와 동일해야 함).
+ */
+function getAuthExpoIoRedirectUri(): string {
+  try {
+    return AuthSession.getRedirectUrl()
+  } catch {
+    const owner = Constants.expoConfig?.owner
+    const slug = Constants.expoConfig?.slug
+    if (typeof owner === 'string' && owner.trim() && typeof slug === 'string' && slug.trim()) {
+      return `https://auth.expo.io/@${owner.trim()}/${slug.trim()}`
+    }
+    return 'https://auth.expo.io/@snowrabbit/medi-check'
+  }
+}
+
+/**
+ * iOS Expo Go: ASWebAuthenticationSession + auth.expo.io 는 불안정하다.
+ * SFSafariViewController(openBrowserAsync) + 운영 HTTPS 콜백 HTML에서 exp:// 로 넘긴 뒤 Linking 으로 code 수신.
+ */
+async function openKakaoOAuthWithBrowserAndLinking(
+  kakaoAuthorizeUrl: string,
+  expoReturnUrl: string
+): Promise<WebBrowser.WebBrowserAuthSessionResult> {
+  const returnPrefix = expoReturnUrl.split('?')[0]
+  return await new Promise((resolve) => {
+    let settled = false
+    const sub = Linking.addEventListener('url', (e) => {
+      const url = e.url
+      if (!url || (!url.includes('code=') && !url.includes('error='))) return
+      if (!url.startsWith(returnPrefix)) return
+      if (settled) return
+      settled = true
+      sub.remove()
+      void WebBrowser.dismissBrowser().catch(() => {})
+      resolve({ type: 'success', url })
+    })
+    void WebBrowser.openBrowserAsync(kakaoAuthorizeUrl).then(() => {
+      if (settled) return
+      settled = true
+      sub.remove()
+      resolve({ type: WebBrowser.WebBrowserResultType.CANCEL })
+    })
+  })
+}
+
+/**
  * 카카오 로그인 redirect_uri — 카카오 콘솔은 http(s)만 허용(exp:// 불가).
  */
 function getKakaoOAuthRedirectUri(): string {
@@ -105,16 +153,7 @@ function getKakaoOAuthRedirectUri(): string {
   if (publicOrigin) {
     return `${publicOrigin}${KAKAO_OAUTH_CALLBACK_PATH}`
   }
-  const owner = Constants.expoConfig?.owner
-  const slug = Constants.expoConfig?.slug
-  if (typeof owner === 'string' && owner.trim() && typeof slug === 'string' && slug.trim()) {
-    return `https://auth.expo.io/@${owner.trim()}/${slug.trim()}`
-  }
-  try {
-    return AuthSession.getRedirectUrl()
-  } catch {
-    return 'https://auth.expo.io/@snowrabbit/medi-check'
-  }
+  return getAuthExpoIoRedirectUri()
 }
 
 /** Expo 인가 요청에 붙이는 state 접두사 — 웹 KakaoCallbackPage와 동일 문자열(접두)로 인앱 여부 판별 */
@@ -184,9 +223,29 @@ export default function LoginScreen() {
       }
 
       const redirectUri = getKakaoOAuthRedirectUri()
+      const exec = Constants.executionEnvironment
 
-      /** 요청마다 nonce — 콜백 state와 정확히 일치할 때만 code 교환 */
-      const oauthState = `${KAKAO_OAUTH_EXPO_STATE_PREFIX}.${await Crypto.randomUUID()}`
+      if (
+        Platform.OS === 'ios' &&
+        exec === ExecutionEnvironment.StoreClient &&
+        redirectUri.includes('auth.expo.io')
+      ) {
+        throw new Error(
+          'iOS Expo Go에서는 auth.expo.io 카카오 로그인을 쓸 수 없습니다. .env에 EXPO_PUBLIC_KAKAO_OAUTH_REDIRECT_ORIGIN=https://medicheck.life 를 설정하고, 카카오·백엔드에 동일한 redirect URI(https://medicheck.life/oauth/kakao/callback)를 등록하세요. (스토어/개발 빌드는 medicheck:// 스킴을 사용합니다.)'
+        )
+      }
+
+      const useIosExpoGoBrowserBridge =
+        Platform.OS === 'ios' &&
+        exec === ExecutionEnvironment.StoreClient &&
+        redirectUri.startsWith('https://') &&
+        !redirectUri.includes('auth.expo.io')
+
+      const expoReturnUrl = AuthSession.getDefaultReturnUrl()
+      /** iOS Expo Go + 운영 HTTPS: state 에 exp 복귀 URL을 넣어 medicheck 정적 페이지가 exp:// 로 넘긴다 */
+      const oauthState = useIosExpoGoBrowserBridge
+        ? `${KAKAO_OAUTH_EXPO_STATE_PREFIX}__${encodeURIComponent(expoReturnUrl)}__${await Crypto.randomUUID()}`
+        : `${KAKAO_OAUTH_EXPO_STATE_PREFIX}.${await Crypto.randomUUID()}`
 
       const authUrl =
         'https://kauth.kakao.com/oauth/authorize?' +
@@ -197,7 +256,9 @@ export default function LoginScreen() {
           state: oauthState,
         }).toString()
 
-      const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUri)
+      const result = useIosExpoGoBrowserBridge
+        ? await openKakaoOAuthWithBrowserAndLinking(authUrl, expoReturnUrl)
+        : await WebBrowser.openAuthSessionAsync(authUrl, redirectUri)
 
       if (result.type === 'cancel' || result.type === 'dismiss') {
         throw new Error('카카오 로그인이 취소되었습니다.')
