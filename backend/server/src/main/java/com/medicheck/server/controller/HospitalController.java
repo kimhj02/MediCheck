@@ -103,6 +103,20 @@ public class HospitalController {
     }
 
     /**
+     * 증상별 병원찾기 UI용: 동기화된 Top5 질병명 중 실제 DB에 존재하는 고유 값 목록.
+     * GET /api/hospitals/search/symptom-keywords
+     */
+    @Operation(
+            summary = "증상 피커용 질병명 목록",
+            description = "hospital_clinic_top5의 질병명 1~5열에서 중복을 제거한 문자열 목록입니다. "
+                    + "Top5 데이터가 없으면 빈 배열입니다."
+    )
+    @GetMapping("/search/symptom-keywords")
+    public ResponseEntity<List<String>> listSymptomPickerKeywords() {
+        return ResponseEntity.ok(hospitalService.findDistinctTop5DiseaseNamesForPicker());
+    }
+
+    /**
      * 근처 병원 조회.
      * 사용자의 위치(lat, lng)에서 반경(radiusMeters m) 내 병원을 거리 오름차순으로 반환합니다.
      * 각 항목에 distanceMeters(미터)가 포함됩니다.

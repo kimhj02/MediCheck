@@ -1,6 +1,7 @@
 import { useState, useCallback, useMemo, useEffect } from 'react'
 import {
   useInfiniteQuery,
+  useQuery,
   keepPreviousData,
   type InfiniteData,
   type Query,
@@ -9,61 +10,26 @@ import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
   FlatList,
   TouchableOpacity,
   ActivityIndicator,
+  Modal,
+  Pressable,
+  TextInput,
+  Keyboard,
+  Dimensions,
 } from 'react-native'
 import { useRouter } from 'expo-router'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import * as Location from 'expo-location'
 import { Ionicons } from '@expo/vector-icons'
-import { getHospitalsBySymptom } from '@/lib/api'
+import { getHospitalsBySymptom, getSymptomPickerKeywords } from '@/lib/api'
 import HospitalCard from '@/components/HospitalCard'
 import type { Hospital, Page } from '@/types'
 
 const SYMPTOM_QUERY_KEY_ROOT = 'hospitalsBySymptom' as const
+const SYMPTOM_KEYWORDS_QUERY_KEY = ['symptomPickerKeywords'] as const
 const NO_COORDS_SENTINEL = 'no-coords' as const
-
-/**
- * 심평원 진료 상위 질병명 매칭용 — 자주 찾는 증상·질환 라벨(검색어와 동일 문자열 전달)
- */
-const SYMPTOM_CHOICES = [
-  '감기',
-  '기침',
-  '인후통',
-  '콧물',
-  '코막힘',
-  '두통',
-  '편두통',
-  '어지럼증',
-  '발열',
-  '가슴통증',
-  '두근거림',
-  '호흡곤란',
-  '복통',
-  '상복통',
-  '소화불량',
-  '설사',
-  '변비',
-  '구토',
-  '메스꺼움',
-  '요통',
-  '목통증',
-  '무릎통증',
-  '관절통',
-  '근육통',
-  '피부가려움',
-  '두드러기',
-  '습진',
-  '알레르기',
-  '불면',
-  '우울',
-  '불안',
-  '눈충혈',
-  '시야흐림',
-  '귀통증',
-  '이명',
-] as const
 
 type SymptomHospitalInfiniteData = InfiniteData<Page<Hospital>, number>
 
@@ -71,10 +37,6 @@ type SymptomQueryKey =
   | readonly [typeof SYMPTOM_QUERY_KEY_ROOT, string, number, number]
   | readonly [typeof SYMPTOM_QUERY_KEY_ROOT, string, typeof NO_COORDS_SENTINEL]
 
-/**
- * coords가 나중에 잡히면 queryKey가 바뀌어도 이전 페이지를 유지(전면 로딩 방지).
- * 증상 문자열이 바뀌면 이전 목록을 placeholder로 쓰지 않는다.
- */
 function symptomSearchPlaceholderData(
   previousData: SymptomHospitalInfiniteData | undefined,
   previousQuery:
@@ -105,10 +67,32 @@ function userFacingQueryErrorMessage(err: unknown): string {
   return '요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.'
 }
 
+const MODAL_LIST_MAX_HEIGHT = Math.round(Dimensions.get('window').height * 0.52)
+
 export default function SymptomHospitalsScreen() {
   const router = useRouter()
+  const insets = useSafeAreaInsets()
   const [symptom, setSymptom] = useState('')
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null)
+  const [pickerVisible, setPickerVisible] = useState(false)
+  const [pickerFilter, setPickerFilter] = useState('')
+
+  const {
+    data: pickerKeywords = [],
+    isLoading: keywordsLoading,
+    isError: keywordsError,
+    refetch: refetchKeywords,
+  } = useQuery({
+    queryKey: SYMPTOM_KEYWORDS_QUERY_KEY,
+    queryFn: getSymptomPickerKeywords,
+    staleTime: 10 * 60 * 1000,
+  })
+
+  useEffect(() => {
+    if (pickerVisible) {
+      setPickerFilter('')
+    }
+  }, [pickerVisible])
 
   useEffect(() => {
     let cancelled = false
@@ -128,7 +112,7 @@ export default function SymptomHospitalsScreen() {
           })
         }
       } catch {
-        /* 거리 정렬 없이 검색 — coords 유지(null) */
+        /* 거리 정렬 없이 검색 */
       }
     })()
     return () => {
@@ -139,9 +123,11 @@ export default function SymptomHospitalsScreen() {
   const symptomTrim = symptom.trim()
   const symptomReady = symptomTrim.length >= 2
 
-  const handleSymptomChoice = useCallback((label: string) => {
-    setSymptom((prev) => (prev.trim() === label ? '' : label))
-  }, [])
+  const filteredPickerKeywords = useMemo(() => {
+    const f = pickerFilter.trim().toLowerCase()
+    if (!f) return pickerKeywords
+    return pickerKeywords.filter((k) => k.toLowerCase().includes(f))
+  }, [pickerKeywords, pickerFilter])
 
   const symptomQueryKey = useMemo(
     () =>
@@ -209,6 +195,12 @@ export default function SymptomHospitalsScreen() {
     }
   }, [hasNextPage, isFetchingNextPage, fetchNextPage])
 
+  const handlePickSymptom = useCallback((label: string) => {
+    setSymptom(label)
+    setPickerVisible(false)
+    Keyboard.dismiss()
+  }, [])
+
   const listLoading = isLoading && !hospitalPages
   const showFullScreenLoadError = isLoadingError && !hospitalPages
   const loadErrorMessage = error ? userFacingQueryErrorMessage(error) : ''
@@ -218,43 +210,45 @@ export default function SymptomHospitalsScreen() {
       <View style={styles.headerBlock}>
         <View style={styles.symptomPickerHeader}>
           <Ionicons name="medkit-outline" size={22} color="#0EA5E9" />
-          <Text style={styles.symptomPickerTitle}>증상 선택</Text>
+          <Text style={styles.symptomPickerTitle}>증상별 병원찾기</Text>
         </View>
-        <ScrollView
-          style={styles.symptomScroll}
-          contentContainerStyle={styles.symptomScrollContent}
-          showsVerticalScrollIndicator
-          keyboardShouldPersistTaps="handled"
-          nestedScrollEnabled
+
+        <TouchableOpacity
+          style={styles.selectTrigger}
+          onPress={() => setPickerVisible(true)}
+          activeOpacity={0.82}
+          accessibilityRole="button"
+          accessibilityLabel="증상·질환 목록 열기"
         >
-          {SYMPTOM_CHOICES.map((label) => {
-            const selected = symptomTrim === label
-            return (
-              <TouchableOpacity
-                key={label}
-                style={[styles.symptomRow, selected && styles.symptomRowSelected]}
-                onPress={() => handleSymptomChoice(label)}
-                activeOpacity={0.75}
-                accessibilityRole="button"
-                accessibilityState={{ selected }}
-                accessibilityLabel={`증상 ${label}${selected ? ', 선택됨. 다시 누르면 해제' : ''}`}
-              >
-                <Text style={[styles.symptomRowLabel, selected && styles.symptomRowLabelSelected]}>
-                  {label}
-                </Text>
-                {selected ? (
-                  <Ionicons name="checkmark-circle" size={22} color="#0EA5E9" />
-                ) : (
-                  <Ionicons name="chevron-forward" size={20} color="#CBD5E1" />
-                )}
-              </TouchableOpacity>
-            )
-          })}
-        </ScrollView>
+          <View style={styles.selectTriggerTextBlock}>
+            <Text style={styles.selectTriggerCaption}>선택</Text>
+            <Text
+              style={[
+                styles.selectTriggerValue,
+                !symptomTrim && styles.selectTriggerPlaceholder,
+              ]}
+              numberOfLines={2}
+            >
+              {symptomTrim || '탭하여 DB에 있는 질병명 목록 열기'}
+            </Text>
+          </View>
+          <Ionicons name="chevron-down" size={22} color="#64748B" />
+        </TouchableOpacity>
+
+        {symptomTrim ? (
+          <TouchableOpacity
+            style={styles.clearSelectionBtn}
+            onPress={() => setSymptom('')}
+            accessibilityRole="button"
+            accessibilityLabel="선택한 증상 해제"
+          >
+            <Text style={styles.clearSelectionBtnText}>선택 해제</Text>
+          </TouchableOpacity>
+        ) : null}
+
         <Text style={styles.hint}>
-          아래에서 증상·질환을 한 가지 고르면 검색이 시작됩니다. 같은 항목을 다시 누르면
-          선택이 해제됩니다. 심평원 「진료 상위 5개 질병명」과 비교하며, 매칭 순위가 높은
-          병원이 먼저 나옵니다.
+          목록은 심평원 Top5가 동기화된 DB에서만 가져옵니다. 항목을 고르면 해당 질병명과
+          부분 일치하는 병원만 검색됩니다. 매칭 순위(1위→5위)가 높은 병원이 먼저 나옵니다.
           {coords != null
             ? ' 같은 순위는 현재 위치 기준 가까운 순입니다.'
             : ' 위치 권한을 허용하면 같은 순위를 가까운 순으로 정렬합니다.'}
@@ -264,7 +258,7 @@ export default function SymptomHospitalsScreen() {
       <View style={styles.resultHeader}>
         <Text style={styles.resultCount}>
           {!symptomReady
-            ? '증상을 목록에서 선택해 주세요'
+            ? '증상을 선택해 주세요'
             : listLoading
               ? '검색 중…'
               : showFullScreenLoadError
@@ -291,7 +285,9 @@ export default function SymptomHospitalsScreen() {
         <View style={styles.centered}>
           <Ionicons name="list-outline" size={48} color="#CBD5E1" />
           <Text style={styles.emptyTitle}>병원 목록이 여기에 표시됩니다</Text>
-          <Text style={styles.emptyText}>위 목록에서 증상을 한 가지 선택해 주세요.</Text>
+          <Text style={styles.emptyText}>
+            위「선택」을 눌러 실제 데이터에 있는 질병명을 고르세요.
+          </Text>
         </View>
       ) : listLoading ? (
         <View style={styles.centered}>
@@ -350,6 +346,107 @@ export default function SymptomHospitalsScreen() {
           }
         />
       )}
+
+      <Modal
+        visible={pickerVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setPickerVisible(false)}
+      >
+        <View style={styles.modalRoot}>
+          <Pressable style={styles.modalBackdrop} onPress={() => setPickerVisible(false)} />
+          <View
+            style={[
+              styles.modalSheet,
+              {
+                paddingTop: Math.max(insets.top, 8),
+                paddingBottom: Math.max(insets.bottom, 12) + 8,
+              },
+            ]}
+          >
+            <View style={styles.modalGrabber} />
+            <View style={styles.modalTitleRow}>
+              <Text style={styles.modalTitle}>질병명 선택</Text>
+              <TouchableOpacity
+                onPress={() => setPickerVisible(false)}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                accessibilityRole="button"
+                accessibilityLabel="닫기"
+              >
+                <Ionicons name="close" size={28} color="#64748B" />
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.modalSubtitle}>
+              동기화된 Top5 질병명만 표시됩니다 (검색 가능한 항목).
+            </Text>
+            <View style={styles.modalSearchWrap}>
+              <Ionicons name="search" size={18} color="#94A3B8" />
+              <TextInput
+                style={styles.modalSearchInput}
+                placeholder="목록에서 찾기…"
+                placeholderTextColor="#94A3B8"
+                value={pickerFilter}
+                onChangeText={setPickerFilter}
+                returnKeyType="search"
+              />
+            </View>
+            {keywordsLoading ? (
+              <View style={styles.modalLoading}>
+                <ActivityIndicator size="large" color="#0EA5E9" />
+              </View>
+            ) : keywordsError ? (
+              <View style={styles.modalLoading}>
+                <Text style={styles.modalEmptyText}>목록을 불러오지 못했습니다.</Text>
+                <TouchableOpacity onPress={() => refetchKeywords()}>
+                  <Text style={styles.modalRetry}>다시 시도</Text>
+                </TouchableOpacity>
+              </View>
+            ) : pickerKeywords.length === 0 ? (
+              <View style={styles.modalLoading}>
+                <Text style={styles.modalEmptyText}>
+                  표시할 질병명이 없습니다. 병원 Top5 데이터 동기화 후 다시 확인해 주세요.
+                </Text>
+              </View>
+            ) : (
+              <FlatList
+                style={{ maxHeight: MODAL_LIST_MAX_HEIGHT }}
+                data={filteredPickerKeywords}
+                keyExtractor={(item) => item}
+                keyboardShouldPersistTaps="handled"
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    style={[
+                      styles.modalRow,
+                      item === symptomTrim && styles.modalRowSelected,
+                    ]}
+                    onPress={() => handlePickSymptom(item)}
+                    activeOpacity={0.75}
+                  >
+                    <Text
+                      style={[
+                        styles.modalRowLabel,
+                        item === symptomTrim && styles.modalRowLabelSelected,
+                      ]}
+                      numberOfLines={2}
+                    >
+                      {item}
+                    </Text>
+                    {item === symptomTrim ? (
+                      <Ionicons name="checkmark-circle" size={22} color="#0EA5E9" />
+                    ) : (
+                      <Ionicons name="chevron-forward" size={18} color="#CBD5E1" />
+                    )}
+                  </TouchableOpacity>
+                )}
+                ListEmptyComponent={
+                  <Text style={styles.modalEmptyText}>일치하는 항목이 없습니다.</Text>
+                }
+                contentContainerStyle={styles.modalListContent}
+              />
+            )}
+          </View>
+        </View>
+      </Modal>
     </View>
   )
 }
@@ -371,44 +468,54 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginBottom: 8,
+    marginBottom: 10,
   },
   symptomPickerTitle: {
     fontSize: 17,
     fontWeight: '700',
     color: '#1E293B',
   },
-  symptomScroll: {
-    maxHeight: 240,
-    marginHorizontal: -4,
-  },
-  symptomScrollContent: {
-    paddingBottom: 4,
-  },
-  symptomRow: {
+  selectTrigger: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    marginBottom: 4,
-    borderRadius: 12,
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  symptomRowSelected: {
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+    borderRadius: 14,
     backgroundColor: '#F0F9FF',
-    borderColor: '#7DD3FC',
+    borderWidth: 1,
+    borderColor: '#BAE6FD',
   },
-  symptomRowLabel: {
+  selectTriggerTextBlock: {
+    flex: 1,
+    marginRight: 10,
+  },
+  selectTriggerCaption: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#0369A1',
+    marginBottom: 4,
+    letterSpacing: 0.3,
+  },
+  selectTriggerValue: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#334155',
-    flex: 1,
+    color: '#0F172A',
+    lineHeight: 22,
   },
-  symptomRowLabelSelected: {
-    color: '#0369A1',
+  selectTriggerPlaceholder: {
+    color: '#64748B',
+    fontWeight: '500',
+  },
+  clearSelectionBtn: {
+    alignSelf: 'flex-start',
+    marginTop: 8,
+    paddingVertical: 4,
+  },
+  clearSelectionBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#0EA5E9',
   },
   hint: {
     marginTop: 10,
@@ -476,5 +583,109 @@ const styles = StyleSheet.create({
   },
   footer: {
     paddingVertical: 20,
+  },
+  modalRoot: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  modalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(15, 23, 42, 0.45)',
+  },
+  modalSheet: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 18,
+    borderTopRightRadius: 18,
+    paddingHorizontal: 16,
+    maxHeight: '88%',
+    minHeight: 360,
+  },
+  modalGrabber: {
+    alignSelf: 'center',
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#CBD5E1',
+    marginBottom: 12,
+  },
+  modalTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  modalSubtitle: {
+    fontSize: 12,
+    color: '#64748B',
+    marginBottom: 12,
+    lineHeight: 18,
+  },
+  modalSearchWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F1F5F9',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    marginBottom: 10,
+    gap: 8,
+  },
+  modalSearchInput: {
+    flex: 1,
+    height: 44,
+    fontSize: 16,
+    color: '#1E293B',
+  },
+  modalLoading: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 40,
+    gap: 12,
+  },
+  modalEmptyText: {
+    fontSize: 15,
+    color: '#64748B',
+    textAlign: 'center',
+    paddingHorizontal: 12,
+  },
+  modalRetry: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0EA5E9',
+  },
+  modalListContent: {
+    paddingBottom: 24,
+  },
+  modalRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+    paddingHorizontal: 4,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#E2E8F0',
+    gap: 10,
+  },
+  modalRowSelected: {
+    backgroundColor: '#F0F9FF',
+    marginHorizontal: -8,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    borderBottomWidth: 0,
+  },
+  modalRowLabel: {
+    flex: 1,
+    fontSize: 16,
+    color: '#334155',
+    fontWeight: '500',
+  },
+  modalRowLabelSelected: {
+    color: '#0369A1',
+    fontWeight: '700',
   },
 })

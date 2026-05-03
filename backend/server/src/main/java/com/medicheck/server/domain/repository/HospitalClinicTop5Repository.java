@@ -27,5 +27,35 @@ public interface HospitalClinicTop5Repository extends JpaRepository<HospitalClin
             WHERE h.id IN :ids
             """)
     List<HospitalClinicTop5> findAllByHospitalIdInWithHospitalFetch(@Param("ids") List<Long> ids);
+
+    /**
+     * 증상별 병원찾기 피커용: Top5 질병명 1~5열에서 실제로 등장한 값만 모아 중복 제거(2자 이상, 최대 400건).
+     */
+    @Query(
+            value = """
+                    SELECT DISTINCT TRIM(v) AS disease_name
+                    FROM (
+                        SELECT disease_nm_1 AS v FROM hospital_clinic_top5
+                            WHERE disease_nm_1 IS NOT NULL AND TRIM(disease_nm_1) <> ''
+                        UNION ALL
+                        SELECT disease_nm_2 FROM hospital_clinic_top5
+                            WHERE disease_nm_2 IS NOT NULL AND TRIM(disease_nm_2) <> ''
+                        UNION ALL
+                        SELECT disease_nm_3 FROM hospital_clinic_top5
+                            WHERE disease_nm_3 IS NOT NULL AND TRIM(disease_nm_3) <> ''
+                        UNION ALL
+                        SELECT disease_nm_4 FROM hospital_clinic_top5
+                            WHERE disease_nm_4 IS NOT NULL AND TRIM(disease_nm_4) <> ''
+                        UNION ALL
+                        SELECT disease_nm_5 FROM hospital_clinic_top5
+                            WHERE disease_nm_5 IS NOT NULL AND TRIM(disease_nm_5) <> ''
+                    ) AS combined
+                    WHERE CHAR_LENGTH(TRIM(v)) >= 2
+                    ORDER BY disease_name
+                    LIMIT 400
+                    """,
+            nativeQuery = true
+    )
+    List<String> findDistinctDiseaseNamesForPicker();
 }
 

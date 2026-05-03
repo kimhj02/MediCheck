@@ -177,4 +177,17 @@ class HospitalControllerApiTest {
                 .andExpect(jsonPath("$.content[0].name").value("증상매칭병원"))
                 .andExpect(jsonPath("$.totalElements").value(1));
     }
+
+    @Test
+    @DisplayName("GET /api/hospitals/search/symptom-keywords - Top5 질병명 문자열 배열을 반환한다")
+    void listSymptomKeywords_returns200AndJsonArray() throws Exception {
+        given(hospitalService.findDistinctTop5DiseaseNamesForPicker())
+                .willReturn(List.of("감기", "당뇨병"));
+
+        mockMvc.perform(get("/api/hospitals/search/symptom-keywords"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray())
+                .andExpect(jsonPath("$[0]").value("감기"))
+                .andExpect(jsonPath("$[1]").value("당뇨병"));
+    }
 }

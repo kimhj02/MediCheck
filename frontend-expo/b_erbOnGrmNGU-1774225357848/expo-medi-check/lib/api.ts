@@ -134,6 +134,11 @@ export async function getHospitalsBySymptom(params: {
   return fetchApi(`/hospitals/search/symptom?${searchParams}`)
 }
 
+/** DB에 동기화된 Top5 질병명만 모은 목록(증상 피커용) */
+export async function getSymptomPickerKeywords(): Promise<string[]> {
+  return fetchApi<string[]>('/hospitals/search/symptom-keywords')
+}
+
 export async function getHospital(id: number): Promise<Hospital> {
   return fetchApi(`/hospitals/${id}`)
 }
