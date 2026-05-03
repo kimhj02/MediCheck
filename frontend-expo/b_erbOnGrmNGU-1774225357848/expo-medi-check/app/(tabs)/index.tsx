@@ -10,6 +10,8 @@ import {
   Linking,
   Alert,
   Platform,
+  Animated,
+  PanResponder,
 } from 'react-native'
 import MapView, { Marker, Region } from 'react-native-maps'
 import Constants from 'expo-constants'
@@ -25,13 +27,13 @@ import HospitalCard from '@/components/HospitalCard'
 import { MapPlaceMarker } from '@/components/MapPlaceMarker'
 import { KakaoMapView, type KakaoMapViewHandle } from '@/components/KakaoMapView'
 import { RADIUS_OPTIONS, DEFAULT_RADIUS_METERS } from '@/lib/radiusOptions'
-import {
-  PRESET_OKGYE_HEUNGAN_46_LAT,
-  PRESET_OKGYE_HEUNGAN_46_LNG,
-} from '@/lib/presetTestLocation'
 import { GOOGLE_MAP_HIDE_POI_STYLE } from '@/lib/mapHidePoiStyle'
 
 const { height } = Dimensions.get('window')
+
+const SHEET_MIN_H = height * 0.22
+const SHEET_MAX_H = height * 0.78
+const SHEET_DEFAULT_H = height * 0.42
 
 /** FlatList scrollToIndex용 대략적 행 높이(카드+margin) — onScrollToIndexFailed 시에도 사용 */
 const ESTIMATED_HOSPITAL_LIST_ROW = 200
@@ -46,21 +48,6 @@ const MAP_ZOOM_IN_FACTOR = 0.78
 const MAP_ZOOM_OUT_FACTOR = 1.32
 /** GPS가 장시간 응답 없을 때 무한 로딩 방지용 타임아웃 */
 const GPS_FETCH_TIMEOUT_MS = 12000
-
-function coordsToLocation(lat: number, lng: number): Location.LocationObject {
-  return {
-    coords: {
-      latitude: lat,
-      longitude: lng,
-      altitude: null,
-      accuracy: 10,
-      altitudeAccuracy: null,
-      heading: null,
-      speed: null,
-    },
-    timestamp: Date.now(),
-  }
-}
 
 async function getCurrentPositionWithTimeout(timeoutMs: number) {
   return await Promise.race([
@@ -80,7 +67,6 @@ const kakaoMapAppKey =
 export default function MapScreen() {
   const router = useRouter()
   const insets = useSafeAreaInsets()
-  const showPresetTools = __DEV__
   /**
    * 안드로이드 릴리스에서 일부 기기/에뮬레이터의 react-native-maps 초기화 크래시를 피하기 위해
    * 카카오 WebView 지도를 우선 사용한다. 키가 없으면 KakaoMapView 내부 안내 UI로 안전하게 폴백.
@@ -99,6 +85,28 @@ export default function MapScreen() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [locating, setLocating] = useState(false)
   const [radiusMeters, setRadiusMeters] = useState(DEFAULT_RADIUS_METERS)
+
+  const sheetHeightRef = useRef(SHEET_DEFAULT_H)
+  const sheetHeightAnim = useRef(new Animated.Value(SHEET_DEFAULT_H)).current
+  const sheetDragStartH = useRef(SHEET_DEFAULT_H)
+
+  const sheetPanResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, g) =>
+        Math.abs(g.dy) > Math.abs(g.dx) && Math.abs(g.dy) > 5,
+      onPanResponderGrant: () => {
+        sheetDragStartH.current = sheetHeightRef.current
+      },
+      onPanResponderMove: (_, g) => {
+        const next = Math.min(
+          SHEET_MAX_H,
+          Math.max(SHEET_MIN_H, sheetDragStartH.current - g.dy)
+        )
+        sheetHeightRef.current = next
+        sheetHeightAnim.setValue(next)
+      },
+    })
+  ).current
 
   const applyLocation = useCallback((loc: Location.LocationObject) => {
     setErrorMsg(null)
@@ -263,12 +271,6 @@ export default function MapScreen() {
     mapRef.current.animateToRegion(next, MAP_ZOOM_ANIM_MS)
   }, [useKakaoMap])
 
-  const handleUsePresetOkgye = useCallback(() => {
-    applyLocation(
-      coordsToLocation(PRESET_OKGYE_HEUNGAN_46_LAT, PRESET_OKGYE_HEUNGAN_46_LNG)
-    )
-  }, [applyLocation])
-
   if (errorMsg) {
     return (
       <View style={styles.centered}>
@@ -285,17 +287,6 @@ export default function MapScreen() {
             <Text style={styles.settingsBtnText}>설정 열기</Text>
           </TouchableOpacity>
         </View>
-        {showPresetTools && (
-          <>
-            <Text style={styles.hintMuted}>
-              iOS 시뮬레이터: Features → Location → Custom Location → 위도{' '}
-              {PRESET_OKGYE_HEUNGAN_46_LAT}, 경도 {PRESET_OKGYE_HEUNGAN_46_LNG}
-            </Text>
-            <TouchableOpacity style={styles.gumiLink} onPress={handleUsePresetOkgye}>
-              <Text style={styles.gumiLinkText}>옥계 흥안로 46으로 이동 (테스트)</Text>
-            </TouchableOpacity>
-          </>
-        )}
       </View>
     )
   }
@@ -329,7 +320,7 @@ export default function MapScreen() {
           onRegionChangeComplete={(r) => {
             lastRegionRef.current = r
           }}
-          showsUserLocation
+          showsUserLocation={false}
           showsMyLocationButton={false}
           mapType="standard"
           /** 앱 병원 마커와 지도 기본 POI(병원·상점 아이콘) 겹침 완화 — 카카오 WebView 지도는 API로 POI 끄기 불가 */
@@ -352,6 +343,21 @@ export default function MapScreen() {
               <MapPlaceMarker hospital={item.hospital} />
             </Marker>
           ))}
+          <Marker
+            coordinate={{
+              latitude: location.coords.latitude,
+              longitude: location.coords.longitude,
+            }}
+            anchor={{ x: 0.5, y: 0.5 }}
+            zIndex={10000}
+            tracksViewChanges={false}
+            accessibilityLabel="현재 위치"
+          >
+            <View style={styles.userLocationMarker} pointerEvents="none">
+              <View style={styles.userLocationHalo} />
+              <View style={styles.userLocationCore} />
+            </View>
+          </Marker>
         </MapView>
       )}
 
@@ -393,8 +399,10 @@ export default function MapScreen() {
         </TouchableOpacity>
       </View>
 
-      <View style={styles.bottomSheet}>
-        <View style={styles.handle} />
+      <Animated.View style={[styles.bottomSheet, { height: sheetHeightAnim }]}>
+        <View style={styles.sheetDragArea} {...sheetPanResponder.panHandlers}>
+          <View style={styles.handle} />
+        </View>
         <Text style={styles.sheetTitle}>
           주변 병원 {hospitals?.length ?? 0}곳
         </Text>
@@ -439,12 +447,6 @@ export default function MapScreen() {
             </Text>
           )}
 
-        {showPresetTools && (
-          <TouchableOpacity style={styles.gumiMini} onPress={handleUsePresetOkgye}>
-            <Text style={styles.gumiMiniText}>옥계 흥안로 46으로 이동 (테스트)</Text>
-          </TouchableOpacity>
-        )}
-
         {isLoading ? (
           <ActivityIndicator size="small" color="#0EA5E9" />
         ) : (
@@ -476,7 +478,7 @@ export default function MapScreen() {
             }}
           />
         )}
-      </View>
+      </Animated.View>
     </View>
   )
 }
@@ -495,6 +497,35 @@ const styles = StyleSheet.create({
   },
   map: {
     flex: 1,
+  },
+  /** 시스템 기본 위치 점보다 크게 — 병원 원형 마커와 구분 */
+  userLocationMarker: {
+    width: 56,
+    height: 56,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  userLocationHalo: {
+    position: 'absolute',
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: 'rgba(14, 165, 233, 0.28)',
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.95)',
+  },
+  userLocationCore: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: '#0369A1',
+    borderWidth: 3,
+    borderColor: '#FFFFFF',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.35,
+    shadowRadius: 3,
+    elevation: 6,
   },
   mapControlsColumn: {
     position: 'absolute',
@@ -524,7 +555,6 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    height: height * 0.42,
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
@@ -536,13 +566,17 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 10,
   },
+  sheetDragArea: {
+    alignSelf: 'stretch',
+    alignItems: 'center',
+    paddingTop: 6,
+    paddingBottom: 10,
+  },
   handle: {
-    alignSelf: 'center',
     width: 40,
     height: 4,
     backgroundColor: '#CBD5E1',
     borderRadius: 2,
-    marginBottom: 12,
   },
   sheetTitle: {
     fontSize: 18,
@@ -587,24 +621,6 @@ const styles = StyleSheet.create({
   settingsBtnText: {
     color: '#334155',
     fontWeight: '600',
-  },
-  hintMuted: {
-    marginTop: 20,
-    fontSize: 12,
-    color: '#94A3B8',
-    textAlign: 'center',
-    paddingHorizontal: 20,
-    lineHeight: 18,
-  },
-  gumiLink: {
-    marginTop: 16,
-    paddingVertical: 8,
-  },
-  gumiLinkText: {
-    fontSize: 14,
-    color: '#0EA5E9',
-    fontWeight: '600',
-    textDecorationLine: 'underline',
   },
   radiusSectionLabel: {
     fontSize: 12,
@@ -655,14 +671,5 @@ const styles = StyleSheet.create({
     color: '#64748B',
     marginBottom: 8,
     lineHeight: 18,
-  },
-  gumiMini: {
-    alignSelf: 'flex-start',
-    marginBottom: 8,
-  },
-  gumiMiniText: {
-    fontSize: 12,
-    color: '#0EA5E9',
-    fontWeight: '600',
   },
 })

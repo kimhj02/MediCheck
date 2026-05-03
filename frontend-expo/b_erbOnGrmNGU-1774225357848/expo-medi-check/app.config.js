@@ -41,9 +41,6 @@ module.exports = {
         process.env.EXPO_PUBLIC_KAKAO_REST_API_KEY ||
         process.env.VITE_KAKAO_REST_API_KEY ||
         '',
-      /** 테스트 기본 좌표(구미 옥계 흥안로 46). 필요 시 .env로 오버라이드 */
-      testPresetLat: process.env.EXPO_PUBLIC_TEST_PRESET_LAT || '36.14715',
-      testPresetLng: process.env.EXPO_PUBLIC_TEST_PRESET_LNG || '128.41799',
     },
   },
 }

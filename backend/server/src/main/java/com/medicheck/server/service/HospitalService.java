@@ -66,6 +66,13 @@ public class HospitalService {
     }
 
     /**
+     * DB에 동기화된 HIRA Top5 질병명 중, 증상 검색에 쓸 수 있는 고유 문자열 목록(가나다순, 상한 있음).
+     */
+    public List<String> findDistinctTop5DiseaseNamesForPicker() {
+        return hospitalClinicTop5Repository.findDistinctDiseaseNamesForPicker();
+    }
+
+    /**
      * 증상(또는 질환) 키워드로 검색합니다. HIRA 동기화된 병원진료정보 Top5(상위 5개 질병명) 필드와 부분 일치하는 병원만 반환합니다.
      * 토큰은 공백·쉼표로 나누며, 토큰 하나라도 질병명에 매칭되면 포함(OR)합니다.
      * 정렬: 매칭된 질병명 슬롯이 더 상위(1위→5위)인 병원이 먼저 오고, 동일 슬롯이면 사용자 좌표(lat/lng) 기준 거리 오름차순입니다.

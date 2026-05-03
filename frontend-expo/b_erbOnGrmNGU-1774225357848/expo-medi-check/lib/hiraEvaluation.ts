@@ -58,7 +58,10 @@ function parseGrade(value: string | null | undefined): number | null {
   return n >= 1 && n <= 5 ? n : null
 }
 
-/** 유효 등급(1~5)만 모아 평균 후 반올림. 없으면 null */
+/**
+ * 유효 숫자 등급(1~5)만 모아 산술 평균 후 반올림. 없으면 null.
+ * 심평원 항목은 보통 1등급이 가장 우수·5등급이 가장 열위이므로, 값이 작을수록 우수합니다.
+ */
 export function getEvaluationStarScore(
   evaluation: HospitalEvaluationSummary | null | undefined
 ): number | null {
@@ -72,6 +75,28 @@ export function getEvaluationStarScore(
   if (grades.length === 0) return null
   const sum = grades.reduce((a, b) => a + b, 0)
   return Math.round(sum / grades.length)
+}
+
+/**
+ * 등급 평균(1=우수 … 5=열위)을 일반적인 "별 많을수록 좋음" UI로 변환.
+ * 예: 평균 1 → 5칸, 평균 5 → 1칸.
+ */
+export function getHiraGradeAverageAsStarFill(gradeAverage: number): number {
+  const g = Math.min(5, Math.max(1, Math.round(gradeAverage)))
+  return Math.min(5, Math.max(1, 6 - g))
+}
+
+/** 세부 등급 값이 있는 항목 개수(`getHiraEvaluationRows`와 동일 조건, 배열 생성 없음) */
+export function countHiraEvaluationEntries(
+  evaluation: HospitalEvaluationSummary | null | undefined
+): number {
+  if (!evaluation) return 0
+  let n = 0
+  for (const key of EVAL_GRADE_KEYS) {
+    const raw = evaluation[key]
+    if (raw != null && String(raw).trim() !== '') n++
+  }
+  return n
 }
 
 export type HiraEvalRow = { key: string; label: string; value: string }

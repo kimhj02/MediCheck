@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import {
   View,
   Text,
@@ -8,22 +8,17 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   ScrollView,
+  Linking,
   Modal,
   Pressable,
+  Keyboard,
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
+import { useQuery, keepPreviousData } from '@tanstack/react-query'
 import * as Location from 'expo-location'
 import { Ionicons } from '@expo/vector-icons'
-import { getHospitals, getNearbyHospitals } from '@/lib/api'
-import {
-  PRESET_OKGYE_HEUNGAN_46_LAT,
-  PRESET_OKGYE_HEUNGAN_46_LNG,
-} from '@/lib/presetTestLocation'
-
-/** 검색 탭「주변」모드 반경 (고정) */
-const NEARBY_SEARCH_RADIUS_METERS = 3000
+import { getNearbyHospitals } from '@/lib/api'
 import HospitalCard from '@/components/HospitalCard'
 import type { Hospital, NearbyHospital } from '@/types'
 
@@ -43,22 +38,18 @@ const DEPARTMENTS = [
   '정신건강의학과',
 ] as const
 
-type SearchMode = 'all' | 'nearby'
+/** 검색 탭 반경 — 플로팅 버튼 (미터) */
+const RADIUS_KM_OPTIONS = [
+  { meters: 1000, label: '1km' },
+  { meters: 3000, label: '3km' },
+  { meters: 5000, label: '5km' },
+  { meters: 10_000, label: '10km' },
+] as const
 
-function coordsToLocation(lat: number, lng: number): Location.LocationObject {
-  return {
-    coords: {
-      latitude: lat,
-      longitude: lng,
-      altitude: null,
-      accuracy: 10,
-      altitudeAccuracy: null,
-      heading: null,
-      speed: null,
-    },
-    timestamp: Date.now(),
-  }
-}
+const DEFAULT_RADIUS_METERS = 3000
+
+/** 검색 반경 플로팅 트리거 — 정원 */
+const RADIUS_FAB_SIZE = 64
 
 function normalizeSearchInput(s: string): string {
   return s
@@ -67,11 +58,6 @@ function normalizeSearchInput(s: string): string {
     .toLowerCase()
 }
 
-/**
- * 주변 모드 진료과 칩 매칭.
- * - clCdNm(`department`)만으로는 「내과」 등과 안 맞는 경우가 많고, 상호에만 진료과가 붙는 경우가 많음 → 이름도 함께 검사.
- * - 「외과」칩은 「정형외과」「성형외과」 등과 구분.
- */
 function nearbyDepartmentChipMatches(hospital: Hospital, needleRaw: string): boolean {
   const needle = needleRaw.trim().toLowerCase()
   if (!needle) return true
@@ -101,9 +87,6 @@ function nearbyDepartmentChipMatches(hospital: Hospital, needleRaw: string): boo
   return true
 }
 
-/**
- * 주변 목록 클라이언트 필터.
- */
 function filterNearbyResults(
   items: NearbyHospital[],
   keyword: string,
@@ -126,53 +109,60 @@ function filterNearbyResults(
   return list
 }
 
+function radiusLabel(meters: number): string {
+  const found = RADIUS_KM_OPTIONS.find((o) => o.meters === meters)
+  return found?.label ?? `${meters / 1000}km`
+}
+
 export default function SearchScreen() {
   const router = useRouter()
   const insets = useSafeAreaInsets()
-  const [mode, setMode] = useState<SearchMode>('all')
   const [keyword, setKeyword] = useState('')
   const [selectedDepartment, setSelectedDepartment] = useState('전체')
   const [userLocation, setUserLocation] = useState<Location.LocationObject | null>(null)
-  const [modeMenuVisible, setModeMenuVisible] = useState(false)
+  const [radiusMeters, setRadiusMeters] = useState(DEFAULT_RADIUS_METERS)
+  const [radiusMenuVisible, setRadiusMenuVisible] = useState(false)
+  const [locPending, setLocPending] = useState(true)
+  const [locDenied, setLocDenied] = useState(false)
+  const hospitalListRef = useRef<FlatList<NearbyHospital>>(null)
 
-  const {
-    data: hospitalPages,
-    fetchNextPage,
-    hasNextPage,
-    isLoading: hospitalsLoading,
-    isFetchingNextPage,
-  } = useInfiniteQuery({
-    queryKey: ['hospitals', keyword, selectedDepartment],
-    initialPageParam: 0,
-    queryFn: ({ pageParam }) =>
-      getHospitals({
-        keyword: keyword || undefined,
-        department:
-          selectedDepartment === '전체' ? undefined : selectedDepartment,
-        page: pageParam,
-        size: 20,
-      }),
-    getNextPageParam: (lastPage) =>
-      lastPage.last ? undefined : lastPage.number + 1,
-    enabled: mode === 'all',
-  })
-
-  const allHospitals = useMemo(
-    () => hospitalPages?.pages.flatMap((p) => p.content) ?? [],
-    [hospitalPages?.pages]
-  )
-
-  const totalSearchHits = hospitalPages?.pages[0]?.totalElements ?? 0
-
-  /** 동일 병원이 페이지 경계에 중복될 때를 대비 (안전) */
-  const dedupedHospitals = useMemo(() => {
-    const seen = new Set<number>()
-    return allHospitals.filter((h) => {
-      if (seen.has(h.id)) return false
-      seen.add(h.id)
-      return true
+  const handleSearchPress = useCallback(() => {
+    Keyboard.dismiss()
+    requestAnimationFrame(() => {
+      hospitalListRef.current?.scrollToOffset({ offset: 0, animated: true })
     })
-  }, [allHospitals])
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      setLocPending(true)
+      setLocDenied(false)
+      try {
+        const servicesOn = await Location.hasServicesEnabledAsync()
+        if (!servicesOn) {
+          if (!cancelled) setLocDenied(true)
+          return
+        }
+        const { status } = await Location.requestForegroundPermissionsAsync()
+        if (status !== 'granted') {
+          if (!cancelled) setLocDenied(true)
+          return
+        }
+        const loc = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        })
+        if (!cancelled) setUserLocation(loc)
+      } catch {
+        if (!cancelled) setLocDenied(true)
+      } finally {
+        if (!cancelled) setLocPending(false)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const {
     data: nearbyRaw,
@@ -184,15 +174,16 @@ export default function SearchScreen() {
       'searchNearby',
       userLocation?.coords.latitude,
       userLocation?.coords.longitude,
-      NEARBY_SEARCH_RADIUS_METERS,
+      radiusMeters,
     ],
     queryFn: () =>
       getNearbyHospitals(
         userLocation!.coords.latitude,
         userLocation!.coords.longitude,
-        NEARBY_SEARCH_RADIUS_METERS
+        radiusMeters
       ),
-    enabled: mode === 'nearby' && !!userLocation,
+    enabled: !!userLocation,
+    placeholderData: keepPreviousData,
   })
 
   const filteredNearby = useMemo(
@@ -204,33 +195,71 @@ export default function SearchScreen() {
     setSelectedDepartment(dept)
   }, [])
 
-  const handleModeChange = useCallback((next: SearchMode) => {
-    setMode(next)
-    if (next === 'nearby') {
-      /** 전체 검색에서 고른 진료과가 그대로면 DB department(clCdNm)와 불일치해 주변 0건이 되는 경우 방지 */
-      setSelectedDepartment('전체')
-      setUserLocation(
-        coordsToLocation(PRESET_OKGYE_HEUNGAN_46_LAT, PRESET_OKGYE_HEUNGAN_46_LNG)
-      )
-    }
-  }, [])
-
-  const handleLoadMore = useCallback(() => {
-    if (mode !== 'all') return
-    if (hasNextPage && !isFetchingNextPage) {
-      fetchNextPage()
-    }
-  }, [mode, hasNextPage, isFetchingNextPage, fetchNextPage])
-
   const handleKeywordChange = useCallback((text: string) => {
     setKeyword(text)
   }, [])
 
-  const listLoading = mode === 'all' ? hospitalsLoading : nearbyLoading
+  const fabBottom = insets.bottom
+  const fabRight = 12
 
-  /** 탭바·홈 인디케이터 위 우측 하단 */
-  const fabBottom = 2
-  const fabRight = 8
+  const listLoading = locPending || (nearbyLoading && nearbyRaw === undefined)
+
+  if (locPending) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" color="#0EA5E9" />
+          <Text style={styles.loadingHint}>현재 위치를 확인하는 중…</Text>
+        </View>
+      </View>
+    )
+  }
+
+  if (locDenied || !userLocation) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.centered}>
+          <Ionicons name="location-outline" size={48} color="#94A3B8" />
+          <Text style={styles.emptyText}>
+            내 주변 병원을 보려면 위치 권한과 기기 위치 서비스를 켜 주세요.
+          </Text>
+          <View style={styles.errorActions}>
+            <TouchableOpacity
+              style={styles.retryBtn}
+              onPress={() => {
+                setLocPending(true)
+                setLocDenied(false)
+                setUserLocation(null)
+                void (async () => {
+                  try {
+                    const { status } = await Location.requestForegroundPermissionsAsync()
+                    if (status !== 'granted') {
+                      setLocDenied(true)
+                      return
+                    }
+                    const loc = await Location.getCurrentPositionAsync({
+                      accuracy: Location.Accuracy.Balanced,
+                    })
+                    setUserLocation(loc)
+                    setLocDenied(false)
+                  } catch {
+                    setLocDenied(true)
+                  } finally {
+                    setLocPending(false)
+                  }
+                })()
+              }}
+            >
+              <Text style={styles.retryBtnText}>다시 시도</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.settingsBtn} onPress={() => Linking.openSettings()}>
+              <Text style={styles.settingsBtnText}>설정 열기</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    )
+  }
 
   return (
     <View style={styles.container}>
@@ -239,21 +268,28 @@ export default function SearchScreen() {
           <Ionicons name="search" size={20} color="#94A3B8" style={styles.searchIcon} />
           <TextInput
             style={styles.searchInput}
-            placeholder={
-              mode === 'nearby'
-                ? '병원명·주소로 좁히기 (선택)'
-                : '병원명, 주소 검색'
-            }
+            placeholder="병원명·주소로 좁히기 (선택)"
             placeholderTextColor="#94A3B8"
             value={keyword}
             onChangeText={handleKeywordChange}
             returnKeyType="search"
+            blurOnSubmit
+            onSubmitEditing={handleSearchPress}
           />
           {keyword.length > 0 && (
             <TouchableOpacity onPress={() => handleKeywordChange('')}>
               <Ionicons name="close-circle" size={20} color="#94A3B8" />
             </TouchableOpacity>
           )}
+          <TouchableOpacity
+            style={styles.searchSubmitBtn}
+            onPress={handleSearchPress}
+            activeOpacity={0.88}
+            accessibilityRole="button"
+            accessibilityLabel="검색, 키보드 닫고 목록 맨 위로"
+          >
+            <Text style={styles.searchSubmitBtnText}>검색</Text>
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -287,175 +323,118 @@ export default function SearchScreen() {
 
       <View style={styles.resultHeader}>
         <Text style={styles.resultCount}>
-          {mode === 'all'
-            ? hospitalsLoading && !hospitalPages
-              ? '검색 중…'
-              : totalSearchHits > 0
-                ? `검색 결과 ${totalSearchHits}건`
-                : '검색 결과 0건'
-            : `내 주변 ${filteredNearby.length}건 (3km · 옥계 흥안로 46 기준)${
-                  nearbyRaw && nearbyRaw.length !== filteredNearby.length
-                    ? ` — 반경 내 ${nearbyRaw.length}곳 중 필터`
-                    : ''
-                }`}
+          {listLoading
+            ? '불러오는 중…'
+            : `내 주변 ${filteredNearby.length}건 (${radiusLabel(radiusMeters)} · 현재 위치 기준)${
+                nearbyRaw && nearbyRaw.length !== filteredNearby.length
+                  ? ` — 반경 내 ${nearbyRaw.length}곳 중 필터`
+                  : ''
+              }`}
         </Text>
-        {mode === 'nearby' && userLocation && (
-          <TouchableOpacity onPress={() => refetchNearby()}>
-            <Text style={styles.refetchLink}>새로고침</Text>
-          </TouchableOpacity>
-        )}
+        <TouchableOpacity onPress={() => refetchNearby()}>
+          <Text style={styles.refetchLink}>새로고침</Text>
+        </TouchableOpacity>
       </View>
 
-      {listLoading ? (
-        <View style={styles.centered}>
-          <ActivityIndicator size="large" color="#0EA5E9" />
-        </View>
-      ) : mode === 'all' ? (
-        !hospitalsLoading && dedupedHospitals.length === 0 ? (
+      <View style={styles.listArea}>
+        {listLoading ? (
           <View style={styles.centered}>
-            <Ionicons name="search-outline" size={48} color="#CBD5E1" />
-            <Text style={styles.emptyText}>검색 결과가 없습니다</Text>
+            <ActivityIndicator size="large" color="#0EA5E9" />
+          </View>
+        ) : filteredNearby.length === 0 ? (
+          <View style={styles.centered}>
+            <Ionicons name="map-outline" size={48} color="#CBD5E1" />
+            <Text style={styles.emptyText}>
+              {nearbyRaw?.length === 0
+                ? `${radiusLabel(radiusMeters)} 내 병원이 없습니다.`
+                : '조건에 맞는 병원이 없습니다. 검색어나 진료과를 바꿔 보세요.'}
+            </Text>
           </View>
         ) : (
           <FlatList
-            data={dedupedHospitals}
-            keyExtractor={(item) => String(item.id)}
+            ref={hospitalListRef}
+            style={styles.hospitalList}
+            data={filteredNearby}
+            keyExtractor={(item) => String(item.hospital.id)}
             renderItem={({ item }) => (
               <HospitalCard
-                hospital={item}
-                onPress={() => router.push(`/hospital/${item.id}`)}
+                hospital={item.hospital}
+                distance={item.distanceMeters}
+                onPress={() => router.push(`/hospital/${item.hospital.id}`)}
               />
             )}
             contentContainerStyle={[styles.listContent, styles.listContentWithFab]}
-            onEndReached={handleLoadMore}
-            onEndReachedThreshold={0.35}
+            keyboardDismissMode="on-drag"
+            keyboardShouldPersistTaps="handled"
+            refreshing={nearbyFetching}
+            onRefresh={() => refetchNearby()}
             ListFooterComponent={
-              isFetchingNextPage ? (
+              nearbyFetching ? (
                 <ActivityIndicator size="small" color="#0EA5E9" style={styles.footer} />
               ) : null
             }
           />
-        )
-      ) : filteredNearby.length === 0 ? (
-        <View style={styles.centered}>
-          <Ionicons name="map-outline" size={48} color="#CBD5E1" />
-          <Text style={styles.emptyText}>
-            {nearbyRaw?.length === 0
-              ? '3km 내 병원이 없습니다.'
-              : '조건에 맞는 병원이 없습니다. 검색어나 진료과를 바꿔 보세요.'}
-          </Text>
-        </View>
-      ) : (
-        <FlatList
-          data={filteredNearby}
-          keyExtractor={(item) => String(item.hospital.id)}
-          renderItem={({ item }) => (
-            <HospitalCard
-              hospital={item.hospital}
-              distance={item.distanceMeters}
-              onPress={() => router.push(`/hospital/${item.hospital.id}`)}
-            />
-          )}
-          contentContainerStyle={[styles.listContent, styles.listContentWithFab]}
-          refreshing={nearbyFetching}
-          onRefresh={() => refetchNearby()}
-          ListFooterComponent={
-            nearbyFetching ? (
-              <ActivityIndicator size="small" color="#0EA5E9" style={styles.footer} />
-            ) : null
-          }
-        />
-      )}
+        )}
+      </View>
 
       <View
-        style={[
-          styles.modeFabWrap,
-          { bottom: fabBottom + insets.bottom, right: fabRight },
-        ]}
+        style={[styles.radiusFabWrap, { bottom: fabBottom, right: fabRight }]}
         pointerEvents="box-none"
       >
         <TouchableOpacity
-          style={styles.modeFabSingle}
-          onPress={() => setModeMenuVisible(true)}
+          style={styles.radiusFabTrigger}
+          onPress={() => setRadiusMenuVisible(true)}
           activeOpacity={0.9}
+          accessibilityRole="button"
+          accessibilityLabel={`검색 반경 ${radiusLabel(radiusMeters)}, 탭하면 변경`}
         >
-          <Ionicons
-            name={mode === 'all' ? 'search' : 'location'}
-            size={18}
-            color="#FFFFFF"
-          />
-          <Text style={styles.modeFabSingleLabel} numberOfLines={1}>
-            {mode === 'all' ? '전체' : '주변'}
+          <Ionicons name="locate" size={22} color="#FFFFFF" />
+          <Text style={styles.radiusFabTriggerLabel} numberOfLines={1}>
+            {radiusLabel(radiusMeters)}
           </Text>
-          <Ionicons name="chevron-down" size={16} color="#FFFFFF" style={styles.modeFabChevron} />
         </TouchableOpacity>
       </View>
 
       <Modal
-        visible={modeMenuVisible}
+        visible={radiusMenuVisible}
         transparent
         animationType="fade"
-        onRequestClose={() => setModeMenuVisible(false)}
+        onRequestClose={() => setRadiusMenuVisible(false)}
       >
-        <View style={styles.modeMenuOverlay} pointerEvents="box-none">
-          <Pressable style={StyleSheet.absoluteFill} onPress={() => setModeMenuVisible(false)} />
+        <View style={styles.radiusMenuOverlay} pointerEvents="box-none">
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setRadiusMenuVisible(false)} />
           <View
             style={[
-              styles.modeMenuCard,
-              {
-                bottom: fabBottom + insets.bottom + 52,
-                right: fabRight,
-              },
+              styles.radiusMenuCard,
+              { bottom: fabBottom + RADIUS_FAB_SIZE + 10, right: fabRight },
             ]}
           >
-            <Text style={styles.modeMenuTitle}>검색 범위</Text>
-            <TouchableOpacity
-              style={[styles.modeMenuRow, mode === 'all' && styles.modeMenuRowActive]}
-              onPress={() => {
-                handleModeChange('all')
-                setModeMenuVisible(false)
-              }}
-              activeOpacity={0.85}
-            >
-              <Ionicons
-                name="search"
-                size={18}
-                color={mode === 'all' ? '#0EA5E9' : '#64748B'}
-              />
-              <Text
-                style={[styles.modeMenuRowLabel, mode === 'all' && styles.modeMenuRowLabelActive]}
-              >
-                전체
-              </Text>
-              {mode === 'all' && (
-                <Ionicons name="checkmark-circle" size={20} color="#0EA5E9" />
-              )}
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.modeMenuRow, mode === 'nearby' && styles.modeMenuRowActive]}
-              onPress={() => {
-                handleModeChange('nearby')
-                setModeMenuVisible(false)
-              }}
-              activeOpacity={0.85}
-            >
-              <Ionicons
-                name="location"
-                size={18}
-                color={mode === 'nearby' ? '#0EA5E9' : '#64748B'}
-              />
-              <Text
-                style={[
-                  styles.modeMenuRowLabel,
-                  mode === 'nearby' && styles.modeMenuRowLabelActive,
-                ]}
-              >
-                주변
-              </Text>
-              {mode === 'nearby' && (
-                <Ionicons name="checkmark-circle" size={20} color="#0EA5E9" />
-              )}
-            </TouchableOpacity>
+            <Text style={styles.radiusMenuTitle}>검색 반경</Text>
+            {RADIUS_KM_OPTIONS.map((opt) => {
+              const selected = radiusMeters === opt.meters
+              return (
+                <TouchableOpacity
+                  key={opt.meters}
+                  style={[styles.radiusMenuRow, selected && styles.radiusMenuRowActive]}
+                  onPress={() => {
+                    setRadiusMeters(opt.meters)
+                    setRadiusMenuVisible(false)
+                  }}
+                  activeOpacity={0.85}
+                >
+                  <Text
+                    style={[styles.radiusMenuRowLabel, selected && styles.radiusMenuRowLabelActive]}
+                  >
+                    {opt.label}
+                  </Text>
+                  <View style={styles.radiusMenuRowTrail}>
+                    {selected ? (
+                      <Ionicons name="checkmark-circle" size={20} color="#0EA5E9" />
+                    ) : null}
+                  </View>
+                </TouchableOpacity>
+              )
+            })}
           </View>
         </View>
       </Modal>
@@ -491,40 +470,56 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#1E293B',
   },
-  modeFabWrap: {
+  searchSubmitBtn: {
+    marginLeft: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 10,
+    backgroundColor: '#0EA5E9',
+  },
+  searchSubmitBtnText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 15,
+  },
+  listArea: {
+    flex: 1,
+  },
+  hospitalList: {
+    flex: 1,
+  },
+  radiusFabWrap: {
     position: 'absolute',
     zIndex: 20,
   },
-  modeFabSingle: {
-    flexDirection: 'row',
+  radiusFabTrigger: {
+    width: RADIUS_FAB_SIZE,
+    height: RADIUS_FAB_SIZE,
+    borderRadius: RADIUS_FAB_SIZE / 2,
+    backgroundColor: '#0EA5E9',
+    flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    backgroundColor: '#0EA5E9',
-    borderRadius: 24,
+    gap: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.18,
     shadowRadius: 8,
     elevation: 10,
   },
-  modeFabSingleLabel: {
-    fontSize: 14,
-    fontWeight: '700',
+  radiusFabTriggerLabel: {
+    fontSize: 11,
+    fontWeight: '800',
     color: '#FFFFFF',
-    maxWidth: 56,
+    letterSpacing: -0.2,
+    textAlign: 'center',
+    maxWidth: RADIUS_FAB_SIZE - 8,
   },
-  modeFabChevron: {
-    marginLeft: -2,
-    opacity: 0.95,
-  },
-  modeMenuOverlay: {
+  radiusMenuOverlay: {
     flex: 1,
     backgroundColor: 'rgba(15, 23, 42, 0.35)',
   },
-  modeMenuCard: {
+  radiusMenuCard: {
     position: 'absolute',
     minWidth: 200,
     backgroundColor: '#FFFFFF',
@@ -539,7 +534,7 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 12,
   },
-  modeMenuTitle: {
+  radiusMenuTitle: {
     fontSize: 12,
     fontWeight: '600',
     color: '#94A3B8',
@@ -547,25 +542,30 @@ const styles = StyleSheet.create({
     paddingTop: 4,
     paddingBottom: 8,
   },
-  modeMenuRow: {
+  radiusMenuRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 12,
     paddingVertical: 12,
     paddingHorizontal: 12,
     borderRadius: 10,
   },
-  modeMenuRowActive: {
+  radiusMenuRowActive: {
     backgroundColor: '#F0F9FF',
   },
-  modeMenuRowLabel: {
+  radiusMenuRowLabel: {
     flex: 1,
     fontSize: 16,
     fontWeight: '600',
     color: '#334155',
   },
-  modeMenuRowLabelActive: {
+  radiusMenuRowLabelActive: {
     color: '#0369A1',
+  },
+  radiusMenuRowTrail: {
+    width: 24,
+    alignItems: 'flex-end',
+    justifyContent: 'center',
   },
   departmentContainer: {
     backgroundColor: '#FFFFFF',
@@ -607,6 +607,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#64748B',
     flex: 1,
+    marginRight: 8,
   },
   refetchLink: {
     fontSize: 14,
@@ -620,17 +621,46 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingHorizontal: 24,
   },
+  loadingHint: {
+    fontSize: 15,
+    color: '#64748B',
+  },
   emptyText: {
     fontSize: 16,
     color: '#94A3B8',
     textAlign: 'center',
+  },
+  errorActions: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 8,
+  },
+  retryBtn: {
+    backgroundColor: '#0EA5E9',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 12,
+  },
+  retryBtnText: {
+    color: '#FFFFFF',
+    fontWeight: '600',
+  },
+  settingsBtn: {
+    backgroundColor: '#E2E8F0',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 12,
+  },
+  settingsBtnText: {
+    color: '#334155',
+    fontWeight: '600',
   },
   listContent: {
     paddingHorizontal: 16,
     paddingBottom: 20,
   },
   listContentWithFab: {
-    paddingBottom: 120,
+    paddingBottom: 100,
   },
   footer: {
     paddingVertical: 20,
