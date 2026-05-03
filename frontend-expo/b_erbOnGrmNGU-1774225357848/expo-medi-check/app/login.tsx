@@ -93,8 +93,8 @@ function getAuthExpoIoRedirectUri(): string {
 }
 
 /**
- * iOS Expo Go: ASWebAuthenticationSession + auth.expo.io 는 불안정하다.
- * SFSafariViewController(openBrowserAsync) + 운영 HTTPS 콜백 HTML에서 exp:// 로 넘긴 뒤 Linking 으로 code 수신.
+ * Expo Go + 운영 HTTPS: ASWebAuthenticationSession / openAuthSessionAsync 가 콜백을 안정적으로 못 넘길 때 사용.
+ * openBrowserAsync + 운영 HTTPS 콜백 HTML에서 exp:// 로 넘긴 뒤 Linking 으로 code 수신.
  */
 async function openKakaoOAuthWithBrowserAndLinking(
   kakaoAuthorizeUrl: string,
@@ -103,22 +103,42 @@ async function openKakaoOAuthWithBrowserAndLinking(
   const returnPrefix = expoReturnUrl.split('?')[0]
   return await new Promise((resolve) => {
     let settled = false
+    let cancelTimer: ReturnType<typeof setTimeout> | undefined
+
+    const finishCancel = () => {
+      if (settled) return
+      settled = true
+      sub.remove()
+      resolve({ type: WebBrowser.WebBrowserResultType.CANCEL })
+    }
+
     const sub = Linking.addEventListener('url', (e) => {
       const url = e.url
       if (!url || (!url.includes('code=') && !url.includes('error='))) return
       if (!url.startsWith(returnPrefix)) return
       if (settled) return
+      if (cancelTimer) clearTimeout(cancelTimer)
       settled = true
       sub.remove()
-      void WebBrowser.dismissBrowser().catch(() => {})
+      void Promise.resolve(WebBrowser.dismissBrowser()).catch(() => {})
       resolve({ type: 'success', url })
     })
-    void WebBrowser.openBrowserAsync(kakaoAuthorizeUrl).then(() => {
-      if (settled) return
-      settled = true
-      sub.remove()
-      resolve({ type: WebBrowser.WebBrowserResultType.CANCEL })
-    })
+
+    /**
+     * Android: 브라우저가 닫힐 때 openBrowserAsync Promise 가 Linking(url) 보다 먼저 이행되면
+     * 곧바로 CANCEL 이 되어 카카오 화면도 못 보고 앱으로 돌아가는 현상이 난다.
+     * CANCEL 은 짧게 미루어 딥링크를 먼저 처리하게 한다.
+     */
+    const cancelDelayMs = Platform.OS === 'android' ? 300 : 100
+
+    void WebBrowser.openBrowserAsync(kakaoAuthorizeUrl)
+      .then(() => {
+        cancelTimer = setTimeout(finishCancel, cancelDelayMs)
+      })
+      .catch(() => {
+        if (cancelTimer) clearTimeout(cancelTimer)
+        finishCancel()
+      })
   })
 }
 
@@ -226,24 +246,23 @@ export default function LoginScreen() {
       const exec = Constants.executionEnvironment
 
       if (
-        Platform.OS === 'ios' &&
         exec === ExecutionEnvironment.StoreClient &&
         redirectUri.includes('auth.expo.io')
       ) {
         throw new Error(
-          'iOS Expo Go에서는 auth.expo.io 카카오 로그인을 쓸 수 없습니다. .env에 EXPO_PUBLIC_KAKAO_OAUTH_REDIRECT_ORIGIN=https://medicheck.life 를 설정하고, 카카오·백엔드에 동일한 redirect URI(https://medicheck.life/oauth/kakao/callback)를 등록하세요. (스토어/개발 빌드는 medicheck:// 스킴을 사용합니다.)'
+          'Expo Go에서는 auth.expo.io 카카오 로그인을 쓸 수 없습니다. .env에 EXPO_PUBLIC_KAKAO_OAUTH_REDIRECT_ORIGIN=https://medicheck.life 를 설정하고, 카카오·백엔드에 동일한 redirect URI(https://medicheck.life/oauth/kakao/callback)를 등록하세요. (스토어/개발 빌드는 medicheck:// 스킴을 사용합니다.)'
         )
       }
 
-      const useIosExpoGoBrowserBridge =
-        Platform.OS === 'ios' &&
+      /** Expo Go + 운영 HTTPS: Android 에뮬 등에서 openAuthSessionAsync 가 콜백을 못 넘기는 경우가 있어, iOS와 같이 브라우저+Linking+정적 HTML(exp://) 브리지 사용 */
+      const useExpoGoHttpsBrowserBridge =
         exec === ExecutionEnvironment.StoreClient &&
         redirectUri.startsWith('https://') &&
         !redirectUri.includes('auth.expo.io')
 
-      const expoReturnUrl = AuthSession.getDefaultReturnUrl()
-      /** iOS Expo Go + 운영 HTTPS: state 에 exp 복귀 URL을 넣어 medicheck 정적 페이지가 exp:// 로 넘긴다 */
-      const oauthState = useIosExpoGoBrowserBridge
+      /** `getDefaultReturnUrl()` 은 `/--/expo-auth-session` 이라 expo-router 에 매칭 라우트가 없어 Unmatched Route 가 난다 */
+      const expoReturnUrl = Linking.createURL('/login')
+      const oauthState = useExpoGoHttpsBrowserBridge
         ? `${KAKAO_OAUTH_EXPO_STATE_PREFIX}__${encodeURIComponent(expoReturnUrl)}__${await Crypto.randomUUID()}`
         : `${KAKAO_OAUTH_EXPO_STATE_PREFIX}.${await Crypto.randomUUID()}`
 
@@ -256,7 +275,7 @@ export default function LoginScreen() {
           state: oauthState,
         }).toString()
 
-      const result = useIosExpoGoBrowserBridge
+      const result = useExpoGoHttpsBrowserBridge
         ? await openKakaoOAuthWithBrowserAndLinking(authUrl, expoReturnUrl)
         : await WebBrowser.openAuthSessionAsync(authUrl, redirectUri)
 
