@@ -187,7 +187,8 @@ export default function SearchScreen() {
     setKeyword(text)
   }, [])
 
-  const fabBottom = 12 + insets.bottom
+  /** 탭 바 바로 위까지 내려 쓰기 — 홈 인디케이터는 insets.bottom으로 확보 */
+  const fabBottom = 2 + insets.bottom
   const fabRight = 12
 
   const listLoading = locPending || (nearbyLoading && nearbyRaw === undefined)
