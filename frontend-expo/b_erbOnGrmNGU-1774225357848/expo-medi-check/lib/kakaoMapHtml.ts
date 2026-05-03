@@ -114,9 +114,9 @@ export function buildKakaoMapHtml(
               }
             }
 
-            /** 현재 위치(파란 점) 마커 */
+            /** 현재 위치 — 병원 핀(20px)보다 크고 이중 링으로 구분 */
             function currentLocationDataUrl() {
-              var S = 28;
+              var S = 56;
               var cx = S / 2;
               var cy = S / 2;
               var dpr = typeof window !== 'undefined' && window.devicePixelRatio ? window.devicePixelRatio : 2;
@@ -130,15 +130,22 @@ export function buildKakaoMapHtml(
               ctx.scale(dpr, dpr);
               ctx.clearRect(0, 0, S, S);
               ctx.beginPath();
-              ctx.arc(cx, cy, 10, 0, Math.PI * 2);
-              ctx.fillStyle = 'rgba(14,165,233,0.25)';
+              ctx.arc(cx, cy, 23, 0, Math.PI * 2);
+              ctx.fillStyle = 'rgba(14,165,233,0.26)';
+              ctx.fill();
+              ctx.strokeStyle = 'rgba(255,255,255,0.95)';
+              ctx.lineWidth = 2;
+              ctx.stroke();
+              ctx.beginPath();
+              ctx.arc(cx, cy, 12.5, 0, Math.PI * 2);
+              ctx.fillStyle = '#ffffff';
               ctx.fill();
               ctx.beginPath();
-              ctx.arc(cx, cy, 5.2, 0, Math.PI * 2);
-              ctx.fillStyle = '#0284C7';
+              ctx.arc(cx, cy, 9, 0, Math.PI * 2);
+              ctx.fillStyle = '#0369A1';
               ctx.fill();
               ctx.strokeStyle = '#ffffff';
-              ctx.lineWidth = 2;
+              ctx.lineWidth = 2.5;
               ctx.stroke();
               try {
                 return canvas.toDataURL('image/png');
@@ -176,18 +183,26 @@ export function buildKakaoMapHtml(
                   gridSize: 50,
                   styles: [
                     {
-                      width: '38px',
-                      height: '38px',
-                      background: 'rgba(14,165,233,0.92)',
-                      borderRadius: '19px',
-                      color: '#fff',
-                      textAlign: 'center',
-                      fontWeight: '600',
-                      fontSize: '12px',
-                      lineHeight: '38px',
+                      width: '42px',
+                      height: '42px',
                       boxSizing: 'border-box',
-                      border: '2px solid #fff'
-                    }
+                      borderRadius: '21px',
+                      background: 'rgba(14,165,233,0.92)',
+                      border: '2px solid #fff',
+                      color: '#fff',
+                      fontFamily:
+                        'system-ui,-apple-system,"Segoe UI",Roboto,"Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",sans-serif',
+                      fontWeight: '700',
+                      fontSize: '13px',
+                      lineHeight: '1',
+                      letterSpacing: '-0.02em',
+                      textAlign: 'center',
+                      display: 'grid',
+                      placeItems: 'center',
+                      padding: '0',
+                      margin: '0',
+                      WebkitFontSmoothing: 'antialiased',
+                    },
                   ],
                   markers: markers
                 });
@@ -201,8 +216,8 @@ export function buildKakaoMapHtml(
             try {
               var meImg = new kakao.maps.MarkerImage(
                 currentLocationDataUrl(),
-                new kakao.maps.Size(28, 28),
-                { offset: new kakao.maps.Point(14, 14) }
+                new kakao.maps.Size(56, 56),
+                { offset: new kakao.maps.Point(28, 28) }
               );
               window.currentLocationMarker = new kakao.maps.Marker({
                 map: map,

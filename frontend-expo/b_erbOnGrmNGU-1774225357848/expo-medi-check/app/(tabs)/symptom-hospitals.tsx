@@ -1,7 +1,6 @@
 import { useState, useCallback, useMemo, useEffect } from 'react'
 import {
   useInfiniteQuery,
-  useQuery,
   keepPreviousData,
   type InfiniteData,
   type Query,
@@ -18,17 +17,19 @@ import {
   TextInput,
   Keyboard,
   Dimensions,
+  Platform,
+  type KeyboardEvent,
 } from 'react-native'
 import { useRouter } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import * as Location from 'expo-location'
 import { Ionicons } from '@expo/vector-icons'
-import { getHospitalsBySymptom, getSymptomPickerKeywords } from '@/lib/api'
+import { getHospitalsBySymptom } from '@/lib/api'
+import { SYMPTOM_PICKER_LABELS } from '@/lib/symptomPickerLabels'
 import HospitalCard from '@/components/HospitalCard'
 import type { Hospital, Page } from '@/types'
 
 const SYMPTOM_QUERY_KEY_ROOT = 'hospitalsBySymptom' as const
-const SYMPTOM_KEYWORDS_QUERY_KEY = ['symptomPickerKeywords'] as const
 const NO_COORDS_SENTINEL = 'no-coords' as const
 
 type SymptomHospitalInfiniteData = InfiniteData<Page<Hospital>, number>
@@ -68,6 +69,8 @@ function userFacingQueryErrorMessage(err: unknown): string {
 }
 
 const MODAL_LIST_MAX_HEIGHT = Math.round(Dimensions.get('window').height * 0.52)
+/** 모달 상단(그랩바·제목·부제·검색창·여백) 대략 높이 — 키보드 열릴 때 목록 가용 높이 계산용 */
+const PICKER_MODAL_CHROME = 248
 
 export default function SymptomHospitalsScreen() {
   const router = useRouter()
@@ -76,21 +79,31 @@ export default function SymptomHospitalsScreen() {
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null)
   const [pickerVisible, setPickerVisible] = useState(false)
   const [pickerFilter, setPickerFilter] = useState('')
-
-  const {
-    data: pickerKeywords = [],
-    isLoading: keywordsLoading,
-    isError: keywordsError,
-    refetch: refetchKeywords,
-  } = useQuery({
-    queryKey: SYMPTOM_KEYWORDS_QUERY_KEY,
-    queryFn: getSymptomPickerKeywords,
-    staleTime: 10 * 60 * 1000,
-  })
+  const [pickerKeyboardHeight, setPickerKeyboardHeight] = useState(0)
 
   useEffect(() => {
     if (pickerVisible) {
       setPickerFilter('')
+    }
+  }, [pickerVisible])
+
+  useEffect(() => {
+    if (!pickerVisible) {
+      setPickerKeyboardHeight(0)
+      return
+    }
+    const showEvent =
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow'
+    const hideEvent =
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide'
+    const onShow = (e: KeyboardEvent) =>
+      setPickerKeyboardHeight(e.endCoordinates.height)
+    const onHide = () => setPickerKeyboardHeight(0)
+    const subShow = Keyboard.addListener(showEvent, onShow)
+    const subHide = Keyboard.addListener(hideEvent, onHide)
+    return () => {
+      subShow.remove()
+      subHide.remove()
     }
   }, [pickerVisible])
 
@@ -125,9 +138,23 @@ export default function SymptomHospitalsScreen() {
 
   const filteredPickerKeywords = useMemo(() => {
     const f = pickerFilter.trim().toLowerCase()
-    if (!f) return pickerKeywords
-    return pickerKeywords.filter((k) => k.toLowerCase().includes(f))
-  }, [pickerKeywords, pickerFilter])
+    if (!f) return [...SYMPTOM_PICKER_LABELS]
+    return SYMPTOM_PICKER_LABELS.filter((k) => k.toLowerCase().includes(f))
+  }, [pickerFilter])
+
+  const pickerModalListMaxHeight = useMemo(() => {
+    if (pickerKeyboardHeight <= 0) {
+      return MODAL_LIST_MAX_HEIGHT
+    }
+    const winH = Dimensions.get('window').height
+    const chrome =
+      PICKER_MODAL_CHROME +
+      Math.max(insets.top, 8) +
+      Math.max(insets.bottom, 12) +
+      12
+    const available = winH - pickerKeyboardHeight - chrome
+    return Math.max(200, Math.min(MODAL_LIST_MAX_HEIGHT, available))
+  }, [pickerKeyboardHeight, insets.top, insets.bottom])
 
   const symptomQueryKey = useMemo(
     () =>
@@ -247,8 +274,8 @@ export default function SymptomHospitalsScreen() {
         ) : null}
 
         <Text style={styles.hint}>
-          목록은 심평원 Top5가 동기화된 DB에서만 가져옵니다. 항목을 고르면 해당 질병명과
-          부분 일치하는 병원만 검색됩니다. 매칭 순위(1위→5위)가 높은 병원이 먼저 나옵니다.
+          항목을 고르면 해당 질병명과 부분 일치하는 병원만 검색됩니다. 매칭 순위(1위→5위)가 높은
+          병원이 먼저 나옵니다.
           {coords != null
             ? ' 같은 순위는 현재 위치 기준 가까운 순입니다.'
             : ' 위치 권한을 허용하면 같은 순위를 가까운 순으로 정렬합니다.'}
@@ -351,16 +378,26 @@ export default function SymptomHospitalsScreen() {
         visible={pickerVisible}
         animationType="slide"
         transparent
-        onRequestClose={() => setPickerVisible(false)}
+        onRequestClose={() => {
+          Keyboard.dismiss()
+          setPickerVisible(false)
+        }}
       >
         <View style={styles.modalRoot}>
-          <Pressable style={styles.modalBackdrop} onPress={() => setPickerVisible(false)} />
+          <Pressable
+            style={styles.modalBackdrop}
+            onPress={() => {
+              Keyboard.dismiss()
+              setPickerVisible(false)
+            }}
+          />
           <View
             style={[
               styles.modalSheet,
               {
                 paddingTop: Math.max(insets.top, 8),
                 paddingBottom: Math.max(insets.bottom, 12) + 8,
+                marginBottom: pickerKeyboardHeight,
               },
             ]}
           >
@@ -368,7 +405,10 @@ export default function SymptomHospitalsScreen() {
             <View style={styles.modalTitleRow}>
               <Text style={styles.modalTitle}>질병명 선택</Text>
               <TouchableOpacity
-                onPress={() => setPickerVisible(false)}
+                onPress={() => {
+                  Keyboard.dismiss()
+                  setPickerVisible(false)
+                }}
                 hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                 accessibilityRole="button"
                 accessibilityLabel="닫기"
@@ -377,7 +417,7 @@ export default function SymptomHospitalsScreen() {
               </TouchableOpacity>
             </View>
             <Text style={styles.modalSubtitle}>
-              동기화된 Top5 질병명만 표시됩니다 (검색 가능한 항목).
+              앱에 포함된 질병명만 표시됩니다. 아래에서 검색할 수 있습니다.
             </Text>
             <View style={styles.modalSearchWrap}>
               <Ionicons name="search" size={18} color="#94A3B8" />
@@ -390,60 +430,42 @@ export default function SymptomHospitalsScreen() {
                 returnKeyType="search"
               />
             </View>
-            {keywordsLoading ? (
-              <View style={styles.modalLoading}>
-                <ActivityIndicator size="large" color="#0EA5E9" />
-              </View>
-            ) : keywordsError ? (
-              <View style={styles.modalLoading}>
-                <Text style={styles.modalEmptyText}>목록을 불러오지 못했습니다.</Text>
-                <TouchableOpacity onPress={() => refetchKeywords()}>
-                  <Text style={styles.modalRetry}>다시 시도</Text>
-                </TouchableOpacity>
-              </View>
-            ) : pickerKeywords.length === 0 ? (
-              <View style={styles.modalLoading}>
-                <Text style={styles.modalEmptyText}>
-                  표시할 질병명이 없습니다. 병원 Top5 데이터 동기화 후 다시 확인해 주세요.
-                </Text>
-              </View>
-            ) : (
-              <FlatList
-                style={{ maxHeight: MODAL_LIST_MAX_HEIGHT }}
-                data={filteredPickerKeywords}
-                keyExtractor={(item) => item}
-                keyboardShouldPersistTaps="handled"
-                renderItem={({ item }) => (
-                  <TouchableOpacity
+            <FlatList
+              style={{ maxHeight: pickerModalListMaxHeight }}
+              data={filteredPickerKeywords}
+              keyExtractor={(item) => item}
+              keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="on-drag"
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={[
+                    styles.modalRow,
+                    item === symptomTrim && styles.modalRowSelected,
+                  ]}
+                  onPress={() => handlePickSymptom(item)}
+                  activeOpacity={0.75}
+                >
+                  <Text
                     style={[
-                      styles.modalRow,
-                      item === symptomTrim && styles.modalRowSelected,
+                      styles.modalRowLabel,
+                      item === symptomTrim && styles.modalRowLabelSelected,
                     ]}
-                    onPress={() => handlePickSymptom(item)}
-                    activeOpacity={0.75}
+                    numberOfLines={2}
                   >
-                    <Text
-                      style={[
-                        styles.modalRowLabel,
-                        item === symptomTrim && styles.modalRowLabelSelected,
-                      ]}
-                      numberOfLines={2}
-                    >
-                      {item}
-                    </Text>
-                    {item === symptomTrim ? (
-                      <Ionicons name="checkmark-circle" size={22} color="#0EA5E9" />
-                    ) : (
-                      <Ionicons name="chevron-forward" size={18} color="#CBD5E1" />
-                    )}
-                  </TouchableOpacity>
-                )}
-                ListEmptyComponent={
-                  <Text style={styles.modalEmptyText}>일치하는 항목이 없습니다.</Text>
-                }
-                contentContainerStyle={styles.modalListContent}
-              />
-            )}
+                    {item}
+                  </Text>
+                  {item === symptomTrim ? (
+                    <Ionicons name="checkmark-circle" size={22} color="#0EA5E9" />
+                  ) : (
+                    <Ionicons name="chevron-forward" size={18} color="#CBD5E1" />
+                  )}
+                </TouchableOpacity>
+              )}
+              ListEmptyComponent={
+                <Text style={styles.modalEmptyText}>일치하는 항목이 없습니다.</Text>
+              }
+              contentContainerStyle={styles.modalListContent}
+            />
           </View>
         </View>
       </Modal>

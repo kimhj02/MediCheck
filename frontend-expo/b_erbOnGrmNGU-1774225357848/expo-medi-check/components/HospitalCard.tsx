@@ -1,6 +1,10 @@
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { Hospital } from '@/types'
+import {
+  getEvaluationStarScore,
+  getHiraEvaluationRows,
+} from '@/lib/hiraEvaluation'
 
 interface HospitalCardProps {
   hospital: Hospital
@@ -23,6 +27,14 @@ export default function HospitalCard({
     }
     return `${(meters / 1000).toFixed(1)}km`
   }
+
+  const hiraEval = hospital.evaluation
+  const hiraStarAvg =
+    hiraEval != null ? getEvaluationStarScore(hiraEval) : null
+  const hiraRowCount =
+    hiraEval != null ? getHiraEvaluationRows(hiraEval).length : 0
+  const showHiraOnCard =
+    hiraEval != null && (hiraStarAvg != null || hiraRowCount > 0)
 
   return (
     <TouchableOpacity
@@ -53,24 +65,50 @@ export default function HospitalCard({
       </Text>
 
       <View style={styles.footer}>
-        <View style={styles.ratingContainer}>
-          <Ionicons name="star" size={14} color="#FBBF24" />
-          <Text style={styles.rating}>
-            {hospital.averageRating?.toFixed(1) ?? '-'}
-          </Text>
-          <Text style={styles.reviewCount}>
-            ({hospital.reviewCount ?? 0})
-          </Text>
-        </View>
-
-        {hospital.doctorTotalCount !== null && hospital.doctorTotalCount > 0 && (
-          <View style={styles.doctorContainer}>
-            <Ionicons name="medical-outline" size={14} color="#64748B" />
-            <Text style={styles.doctorCount}>
-              의사 {hospital.doctorTotalCount}명
+        <View style={styles.footerMain}>
+          <View style={styles.ratingContainer}>
+            <Ionicons name="star" size={14} color="#FBBF24" />
+            <Text style={styles.rating}>
+              {hospital.averageRating?.toFixed(1) ?? '-'}
+            </Text>
+            <Text style={styles.reviewCount}>
+              ({hospital.reviewCount ?? 0})
             </Text>
           </View>
-        )}
+
+          {hospital.doctorTotalCount !== null && hospital.doctorTotalCount > 0 && (
+            <View style={styles.doctorContainer}>
+              <Ionicons name="medical-outline" size={14} color="#64748B" />
+              <Text style={styles.doctorCount}>
+                의사 {hospital.doctorTotalCount}명
+              </Text>
+            </View>
+          )}
+        </View>
+
+        {showHiraOnCard ? (
+          <View style={styles.hiraRow}>
+            <Ionicons name="ribbon-outline" size={14} color="#0284C7" />
+            <Text style={styles.hiraLabel}>심평원</Text>
+            {hiraStarAvg != null ? (
+              <>
+                <View style={styles.hiraStars}>
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <Ionicons
+                      key={i}
+                      name={i <= hiraStarAvg ? 'star' : 'star-outline'}
+                      size={12}
+                      color="#0284C7"
+                    />
+                  ))}
+                </View>
+                <Text style={styles.hiraHint}>등급 평균</Text>
+              </>
+            ) : (
+              <Text style={styles.hiraFallback}>등급 {hiraRowCount}항목</Text>
+            )}
+          </View>
+        ) : null}
       </View>
 
       {hospital.top5 && hospital.top5.diseaseNm1 && (
@@ -141,9 +179,39 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   footer: {
+    gap: 8,
+  },
+  footerMain: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 16,
+  },
+  hiraRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 4,
+  },
+  hiraLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#0369A1',
+  },
+  hiraStars: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 1,
+    marginLeft: 2,
+  },
+  hiraHint: {
+    fontSize: 11,
+    color: '#64748B',
+    marginLeft: 2,
+  },
+  hiraFallback: {
+    fontSize: 12,
+    color: '#475569',
+    fontWeight: '500',
   },
   ratingContainer: {
     flexDirection: 'row',

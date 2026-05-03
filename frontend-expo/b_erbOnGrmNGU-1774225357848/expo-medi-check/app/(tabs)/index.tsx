@@ -320,7 +320,7 @@ export default function MapScreen() {
           onRegionChangeComplete={(r) => {
             lastRegionRef.current = r
           }}
-          showsUserLocation
+          showsUserLocation={false}
           showsMyLocationButton={false}
           mapType="standard"
           /** 앱 병원 마커와 지도 기본 POI(병원·상점 아이콘) 겹침 완화 — 카카오 WebView 지도는 API로 POI 끄기 불가 */
@@ -343,6 +343,21 @@ export default function MapScreen() {
               <MapPlaceMarker hospital={item.hospital} />
             </Marker>
           ))}
+          <Marker
+            coordinate={{
+              latitude: location.coords.latitude,
+              longitude: location.coords.longitude,
+            }}
+            anchor={{ x: 0.5, y: 0.5 }}
+            zIndex={10000}
+            tracksViewChanges={false}
+            accessibilityLabel="현재 위치"
+          >
+            <View style={styles.userLocationMarker} pointerEvents="none">
+              <View style={styles.userLocationHalo} />
+              <View style={styles.userLocationCore} />
+            </View>
+          </Marker>
         </MapView>
       )}
 
@@ -482,6 +497,35 @@ const styles = StyleSheet.create({
   },
   map: {
     flex: 1,
+  },
+  /** 시스템 기본 위치 점보다 크게 — 병원 원형 마커와 구분 */
+  userLocationMarker: {
+    width: 56,
+    height: 56,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  userLocationHalo: {
+    position: 'absolute',
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: 'rgba(14, 165, 233, 0.28)',
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.95)',
+  },
+  userLocationCore: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: '#0369A1',
+    borderWidth: 3,
+    borderColor: '#FFFFFF',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.35,
+    shadowRadius: 3,
+    elevation: 6,
   },
   mapControlsColumn: {
     position: 'absolute',
