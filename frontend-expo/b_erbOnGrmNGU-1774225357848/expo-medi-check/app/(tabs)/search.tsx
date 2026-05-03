@@ -9,6 +9,8 @@ import {
   ActivityIndicator,
   ScrollView,
   Linking,
+  Modal,
+  Pressable,
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
@@ -115,6 +117,7 @@ export default function SearchScreen() {
   const [selectedDepartment, setSelectedDepartment] = useState('전체')
   const [userLocation, setUserLocation] = useState<Location.LocationObject | null>(null)
   const [radiusMeters, setRadiusMeters] = useState(DEFAULT_RADIUS_METERS)
+  const [radiusMenuVisible, setRadiusMenuVisible] = useState(false)
   const [locPending, setLocPending] = useState(true)
   const [locDenied, setLocDenied] = useState(false)
 
@@ -346,28 +349,67 @@ export default function SearchScreen() {
       )}
 
       <View
-        style={[styles.radiusFabColumn, { bottom: fabBottom, right: fabRight }]}
+        style={[styles.radiusFabWrap, { bottom: fabBottom, right: fabRight }]}
         pointerEvents="box-none"
       >
-        {RADIUS_KM_OPTIONS.map((opt) => {
-          const selected = radiusMeters === opt.meters
-          return (
-            <TouchableOpacity
-              key={opt.meters}
-              style={[styles.radiusFab, selected && styles.radiusFabActive]}
-              onPress={() => setRadiusMeters(opt.meters)}
-              activeOpacity={0.88}
-              accessibilityRole="button"
-              accessibilityLabel={`검색 반경 ${opt.label}`}
-              accessibilityState={{ selected }}
-            >
-              <Text style={[styles.radiusFabText, selected && styles.radiusFabTextActive]}>
-                {opt.label}
-              </Text>
-            </TouchableOpacity>
-          )
-        })}
+        <TouchableOpacity
+          style={styles.radiusFabTrigger}
+          onPress={() => setRadiusMenuVisible(true)}
+          activeOpacity={0.9}
+          accessibilityRole="button"
+          accessibilityLabel={`검색 반경 ${radiusLabel(radiusMeters)}, 탭하면 변경`}
+        >
+          <Ionicons name="locate" size={18} color="#FFFFFF" />
+          <Text style={styles.radiusFabTriggerLabel} numberOfLines={1}>
+            {radiusLabel(radiusMeters)}
+          </Text>
+          <Ionicons name="chevron-up" size={16} color="#FFFFFF" style={styles.radiusFabChevron} />
+        </TouchableOpacity>
       </View>
+
+      <Modal
+        visible={radiusMenuVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setRadiusMenuVisible(false)}
+      >
+        <View style={styles.radiusMenuOverlay} pointerEvents="box-none">
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setRadiusMenuVisible(false)} />
+          <View
+            style={[
+              styles.radiusMenuCard,
+              { bottom: fabBottom + 52, right: fabRight },
+            ]}
+          >
+            <Text style={styles.radiusMenuTitle}>검색 반경</Text>
+            {RADIUS_KM_OPTIONS.map((opt) => {
+              const selected = radiusMeters === opt.meters
+              return (
+                <TouchableOpacity
+                  key={opt.meters}
+                  style={[styles.radiusMenuRow, selected && styles.radiusMenuRowActive]}
+                  onPress={() => {
+                    setRadiusMeters(opt.meters)
+                    setRadiusMenuVisible(false)
+                  }}
+                  activeOpacity={0.85}
+                >
+                  <Text
+                    style={[styles.radiusMenuRowLabel, selected && styles.radiusMenuRowLabelActive]}
+                  >
+                    {opt.label}
+                  </Text>
+                  <View style={styles.radiusMenuRowTrail}>
+                    {selected ? (
+                      <Ionicons name="checkmark-circle" size={20} color="#0EA5E9" />
+                    ) : null}
+                  </View>
+                </TouchableOpacity>
+              )
+            })}
+          </View>
+        </View>
+      </Modal>
     </View>
   )
 }
@@ -400,39 +442,87 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#1E293B',
   },
-  radiusFabColumn: {
+  radiusFabWrap: {
     position: 'absolute',
     zIndex: 20,
-    gap: 8,
-    alignItems: 'flex-end',
   },
-  radiusFab: {
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    minWidth: 56,
+  radiusFabTrigger: {
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    backgroundColor: '#0EA5E9',
+    borderRadius: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.18,
+    shadowRadius: 8,
+    elevation: 10,
+  },
+  radiusFabTriggerLabel: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    minWidth: 40,
+    textAlign: 'center',
+  },
+  radiusFabChevron: {
+    marginLeft: -2,
+    opacity: 0.95,
+  },
+  radiusMenuOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.35)',
+  },
+  radiusMenuCard: {
+    position: 'absolute',
+    minWidth: 200,
     backgroundColor: '#FFFFFF',
-    borderRadius: 22,
+    borderRadius: 14,
+    paddingVertical: 8,
+    paddingHorizontal: 4,
     borderWidth: 1,
     borderColor: '#E2E8F0',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.12,
-    shadowRadius: 6,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 12,
   },
-  radiusFabActive: {
-    backgroundColor: '#0EA5E9',
-    borderColor: '#0284C7',
+  radiusMenuTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#94A3B8',
+    paddingHorizontal: 12,
+    paddingTop: 4,
+    paddingBottom: 8,
   },
-  radiusFabText: {
-    fontSize: 13,
-    fontWeight: '700',
+  radiusMenuRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+  },
+  radiusMenuRowActive: {
+    backgroundColor: '#F0F9FF',
+  },
+  radiusMenuRowLabel: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '600',
     color: '#334155',
   },
-  radiusFabTextActive: {
-    color: '#FFFFFF',
+  radiusMenuRowLabelActive: {
+    color: '#0369A1',
+  },
+  radiusMenuRowTrail: {
+    width: 24,
+    alignItems: 'flex-end',
+    justifyContent: 'center',
   },
   departmentContainer: {
     backgroundColor: '#FFFFFF',
@@ -527,7 +617,7 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   listContentWithFab: {
-    paddingBottom: 220,
+    paddingBottom: 100,
   },
   footer: {
     paddingVertical: 20,
