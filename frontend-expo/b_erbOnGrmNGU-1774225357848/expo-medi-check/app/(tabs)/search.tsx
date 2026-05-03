@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useEffect } from 'react'
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
   Linking,
   Modal,
   Pressable,
+  Keyboard,
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
@@ -123,6 +124,14 @@ export default function SearchScreen() {
   const [radiusMenuVisible, setRadiusMenuVisible] = useState(false)
   const [locPending, setLocPending] = useState(true)
   const [locDenied, setLocDenied] = useState(false)
+  const hospitalListRef = useRef<FlatList<NearbyHospital>>(null)
+
+  const handleSearchPress = useCallback(() => {
+    Keyboard.dismiss()
+    requestAnimationFrame(() => {
+      hospitalListRef.current?.scrollToOffset({ offset: 0, animated: true })
+    })
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -190,7 +199,6 @@ export default function SearchScreen() {
     setKeyword(text)
   }, [])
 
-  /** 테스트: 하단에 최대한 붙임(안전 영역만). 커밋 전 여백 조정 권장 */
   const fabBottom = insets.bottom
   const fabRight = 12
 
@@ -265,12 +273,23 @@ export default function SearchScreen() {
             value={keyword}
             onChangeText={handleKeywordChange}
             returnKeyType="search"
+            blurOnSubmit
+            onSubmitEditing={handleSearchPress}
           />
           {keyword.length > 0 && (
             <TouchableOpacity onPress={() => handleKeywordChange('')}>
               <Ionicons name="close-circle" size={20} color="#94A3B8" />
             </TouchableOpacity>
           )}
+          <TouchableOpacity
+            style={styles.searchSubmitBtn}
+            onPress={handleSearchPress}
+            activeOpacity={0.88}
+            accessibilityRole="button"
+            accessibilityLabel="검색, 키보드 닫고 목록 맨 위로"
+          >
+            <Text style={styles.searchSubmitBtnText}>검색</Text>
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -317,40 +336,46 @@ export default function SearchScreen() {
         </TouchableOpacity>
       </View>
 
-      {listLoading ? (
-        <View style={styles.centered}>
-          <ActivityIndicator size="large" color="#0EA5E9" />
-        </View>
-      ) : filteredNearby.length === 0 ? (
-        <View style={styles.centered}>
-          <Ionicons name="map-outline" size={48} color="#CBD5E1" />
-          <Text style={styles.emptyText}>
-            {nearbyRaw?.length === 0
-              ? `${radiusLabel(radiusMeters)} 내 병원이 없습니다.`
-              : '조건에 맞는 병원이 없습니다. 검색어나 진료과를 바꿔 보세요.'}
-          </Text>
-        </View>
-      ) : (
-        <FlatList
-          data={filteredNearby}
-          keyExtractor={(item) => String(item.hospital.id)}
-          renderItem={({ item }) => (
-            <HospitalCard
-              hospital={item.hospital}
-              distance={item.distanceMeters}
-              onPress={() => router.push(`/hospital/${item.hospital.id}`)}
-            />
-          )}
-          contentContainerStyle={[styles.listContent, styles.listContentWithFab]}
-          refreshing={nearbyFetching}
-          onRefresh={() => refetchNearby()}
-          ListFooterComponent={
-            nearbyFetching ? (
-              <ActivityIndicator size="small" color="#0EA5E9" style={styles.footer} />
-            ) : null
-          }
-        />
-      )}
+      <View style={styles.listArea}>
+        {listLoading ? (
+          <View style={styles.centered}>
+            <ActivityIndicator size="large" color="#0EA5E9" />
+          </View>
+        ) : filteredNearby.length === 0 ? (
+          <View style={styles.centered}>
+            <Ionicons name="map-outline" size={48} color="#CBD5E1" />
+            <Text style={styles.emptyText}>
+              {nearbyRaw?.length === 0
+                ? `${radiusLabel(radiusMeters)} 내 병원이 없습니다.`
+                : '조건에 맞는 병원이 없습니다. 검색어나 진료과를 바꿔 보세요.'}
+            </Text>
+          </View>
+        ) : (
+          <FlatList
+            ref={hospitalListRef}
+            style={styles.hospitalList}
+            data={filteredNearby}
+            keyExtractor={(item) => String(item.hospital.id)}
+            renderItem={({ item }) => (
+              <HospitalCard
+                hospital={item.hospital}
+                distance={item.distanceMeters}
+                onPress={() => router.push(`/hospital/${item.hospital.id}`)}
+              />
+            )}
+            contentContainerStyle={[styles.listContent, styles.listContentWithFab]}
+            keyboardDismissMode="on-drag"
+            keyboardShouldPersistTaps="handled"
+            refreshing={nearbyFetching}
+            onRefresh={() => refetchNearby()}
+            ListFooterComponent={
+              nearbyFetching ? (
+                <ActivityIndicator size="small" color="#0EA5E9" style={styles.footer} />
+              ) : null
+            }
+          />
+        )}
+      </View>
 
       <View
         style={[styles.radiusFabWrap, { bottom: fabBottom, right: fabRight }]}
@@ -444,6 +469,24 @@ const styles = StyleSheet.create({
     height: 44,
     fontSize: 16,
     color: '#1E293B',
+  },
+  searchSubmitBtn: {
+    marginLeft: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 10,
+    backgroundColor: '#0EA5E9',
+  },
+  searchSubmitBtnText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 15,
+  },
+  listArea: {
+    flex: 1,
+  },
+  hospitalList: {
+    flex: 1,
   },
   radiusFabWrap: {
     position: 'absolute',
