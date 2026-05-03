@@ -7,10 +7,8 @@ export default function TabLayout() {
       screenOptions={{
         tabBarActiveTintColor: '#0EA5E9',
         tabBarInactiveTintColor: '#94A3B8',
-        tabBarStyle: {
-          backgroundColor: '#FFFFFF',
-          borderTopColor: '#E2E8F0',
-        },
+        /** 내 주변 단일 화면 — 하단 탭 바 숨김 */
+        tabBarStyle: { display: 'none' },
         headerStyle: { backgroundColor: '#0EA5E9' },
         headerTintColor: '#FFFFFF',
         headerTitleStyle: { fontWeight: '600' },
@@ -25,42 +23,10 @@ export default function TabLayout() {
           ),
         }}
       />
-      <Tabs.Screen
-        name="search"
-        options={{
-          title: '검색',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="search" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="symptom-hospitals"
-        options={{
-          title: '증상별 병원찾기',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="medkit-outline" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="favorites"
-        options={{
-          title: '즐겨찾기',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="heart" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: '내 정보',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="person" size={size} color={color} />
-          ),
-        }}
-      />
+      <Tabs.Screen name="search" options={{ href: null }} />
+      <Tabs.Screen name="symptom-hospitals" options={{ href: null }} />
+      <Tabs.Screen name="favorites" options={{ href: null }} />
+      <Tabs.Screen name="profile" options={{ href: null }} />
     </Tabs>
   )
 }

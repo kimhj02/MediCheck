@@ -17,10 +17,6 @@ import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import * as Location from 'expo-location'
 import { Ionicons } from '@expo/vector-icons'
 import { getHospitals, getNearbyHospitals } from '@/lib/api'
-import {
-  PRESET_OKGYE_HEUNGAN_46_LAT,
-  PRESET_OKGYE_HEUNGAN_46_LNG,
-} from '@/lib/presetTestLocation'
 
 /** 검색 탭「주변」모드 반경 (고정) */
 const NEARBY_SEARCH_RADIUS_METERS = 3000
@@ -44,21 +40,6 @@ const DEPARTMENTS = [
 ] as const
 
 type SearchMode = 'all' | 'nearby'
-
-function coordsToLocation(lat: number, lng: number): Location.LocationObject {
-  return {
-    coords: {
-      latitude: lat,
-      longitude: lng,
-      altitude: null,
-      accuracy: 10,
-      altitudeAccuracy: null,
-      heading: null,
-      speed: null,
-    },
-    timestamp: Date.now(),
-  }
-}
 
 function normalizeSearchInput(s: string): string {
   return s
@@ -209,9 +190,19 @@ export default function SearchScreen() {
     if (next === 'nearby') {
       /** 전체 검색에서 고른 진료과가 그대로면 DB department(clCdNm)와 불일치해 주변 0건이 되는 경우 방지 */
       setSelectedDepartment('전체')
-      setUserLocation(
-        coordsToLocation(PRESET_OKGYE_HEUNGAN_46_LAT, PRESET_OKGYE_HEUNGAN_46_LNG)
-      )
+      setUserLocation(null)
+      void (async () => {
+        try {
+          const { status } = await Location.requestForegroundPermissionsAsync()
+          if (status !== 'granted') return
+          const loc = await Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.Balanced,
+          })
+          setUserLocation(loc)
+        } catch {
+          /* 위치 실패 시 주변 쿼리 비활성 */
+        }
+      })()
     }
   }, [])
 
@@ -293,7 +284,7 @@ export default function SearchScreen() {
               : totalSearchHits > 0
                 ? `검색 결과 ${totalSearchHits}건`
                 : '검색 결과 0건'
-            : `내 주변 ${filteredNearby.length}건 (3km · 옥계 흥안로 46 기준)${
+            : `내 주변 ${filteredNearby.length}건 (3km · 현재 위치 기준)${
                   nearbyRaw && nearbyRaw.length !== filteredNearby.length
                     ? ` — 반경 내 ${nearbyRaw.length}곳 중 필터`
                     : ''
