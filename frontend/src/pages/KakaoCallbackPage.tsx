@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { loginWithKakao } from '../api/auth'
+import { getKakaoOAuthRedirectUri } from '../lib/kakaoOAuthRedirect'
 
 /** Expo `app/login.tsx` — `state`는 `${PREFIX}.${uuid}` 또는 구버전 고정값 */
 const KAKAO_OAUTH_EXPO_STATE_PREFIX = 'medichek_expo_webauth'
@@ -10,7 +11,8 @@ function isExpoInAppKakaoOAuthState(state: string | null): boolean {
   if (state == null) return false
   return (
     state === KAKAO_OAUTH_EXPO_STATE_PREFIX ||
-    state.startsWith(`${KAKAO_OAUTH_EXPO_STATE_PREFIX}.`)
+    state.startsWith(`${KAKAO_OAUTH_EXPO_STATE_PREFIX}.`) ||
+    state.startsWith(`${KAKAO_OAUTH_EXPO_STATE_PREFIX}__`)
   )
 }
 
@@ -37,7 +39,7 @@ export function KakaoCallbackPage() {
       return
     }
 
-    const redirectUri = `${window.location.origin}/oauth/kakao/callback`
+    const redirectUri = getKakaoOAuthRedirectUri()
 
     ;(async () => {
       try {

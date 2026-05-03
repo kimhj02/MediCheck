@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { login } from '../api/auth'
+import { getKakaoOAuthRedirectUri } from '../lib/kakaoOAuthRedirect'
 
 export function LoginPage() {
   const navigate = useNavigate()
@@ -12,7 +13,7 @@ export function LoginPage() {
   const [submitting, setSubmitting] = useState(false)
 
   const handleKakaoLogin = () => {
-    const redirectUri = `${window.location.origin}/oauth/kakao/callback`
+    const redirectUri = getKakaoOAuthRedirectUri()
     const params = new URLSearchParams({ redirectUri })
     // REST API 키(client_id)는 백엔드에서 주입해 인가 URL로 리다이렉트한다.
     window.location.href = `/api/auth/kakao/authorize?${params.toString()}`
