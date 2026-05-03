@@ -56,7 +56,10 @@ npm run start:sim
 
 ### Expo Go (`StoreClient`)
 
-`exp://` 는 카카오 콘솔에 넣기 어렵습니다. **`https://…/oauth/kakao/callback`**(또는 `auth.expo.io` 프록시 URI)를 `redirect_uri`로 쓰며, `EXPO_PUBLIC_KAKAO_OAUTH_REDIRECT_ORIGIN` 등으로 **apex/www** 를 백엔드·콘솔과 맞추세요.
+`exp://` 는 카카오 콘솔에 넣기 어렵습니다.
+
+- **iOS**: `auth.expo.io` 프록시 카카오 플로우는 쿠키·Safari 정책 때문에 **완료되지 않는 경우가 많습니다.** 앱은 **`EXPO_PUBLIC_KAKAO_OAUTH_REDIRECT_ORIGIN`(예: `https://medicheck.life`)** 가 있을 때 **`https://…/oauth/kakao/callback`** 을 `redirect_uri`로 쓰고, **Safari 뷰(`openBrowserAsync`) + `Linking`** 으로 돌아옵니다. 운영 프론트의 **`/oauth/kakao/callback`** 은 `state`에 넣은 `exp://` 주소로 **리다이렉트**하도록 `expo-kakao-oauth.html` 이 배포돼 있어야 합니다(저장소 `frontend/public/expo-kakao-oauth.html`, Docker 프론트 재빌드).
+- **Android**: `EXPO_PUBLIC_KAKAO_OAUTH_REDIRECT_ORIGIN` 으로 **`https://…/oauth/kakao/callback`** 를 쓰면 되며, 백엔드·콘솔의 **apex/www** 와 맞추면 됩니다.
 
 ### 개발 빌드(Bare) / 스토어(Standalone)
 
