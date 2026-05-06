@@ -1,11 +1,11 @@
 package com.medicheck.server;
 
-import com.medicheck.server.config.HiraApiProperties;
-import com.medicheck.server.config.HiraDiagApiProperties;
-import com.medicheck.server.config.HiraEvalApiProperties;
-import com.medicheck.server.config.JwtProperties;
-import com.medicheck.server.config.KakaoMobilityProperties;
-import com.medicheck.server.config.KakaoOAuthProperties;
+import com.medicheck.server.global.config.HiraApiProperties;
+import com.medicheck.server.global.config.HiraDiagApiProperties;
+import com.medicheck.server.global.config.HiraEvalApiProperties;
+import com.medicheck.server.global.config.JwtProperties;
+import com.medicheck.server.global.config.KakaoMobilityProperties;
+import com.medicheck.server.global.config.KakaoOAuthProperties;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
