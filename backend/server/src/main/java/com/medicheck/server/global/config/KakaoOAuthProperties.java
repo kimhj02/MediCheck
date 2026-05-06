@@ -1,0 +1,27 @@
+package com.medicheck.server.global.config;
+
+import lombok.Getter;
+import lombok.Setter;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+
+import java.util.List;
+
+/**
+ * 카카오 OAuth 로그인 설정.
+ * developers.kakao.com → 앱 → REST API 키, 클라이언트 시크릿 사용.
+ */
+@ConfigurationProperties(prefix = "kakao.oauth")
+@Getter
+@Setter
+public class KakaoOAuthProperties {
+
+    /** 카카오 앱 REST API 키 (client_id) */
+    private String restApiKey = "";
+
+    /** 카카오 앱 클라이언트 시크릿 (선택) */
+    private String clientSecret = "";
+
+    /** 허용 redirect URI 목록 (정확히 일치해야 함) */
+    private List<String> allowedRedirectUris = List.of();
+}
+
