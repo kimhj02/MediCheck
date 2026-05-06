@@ -19,6 +19,7 @@ import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
@@ -70,6 +71,19 @@ class HospitalControllerSyncSecurityTest {
                         .param("numOfRows", "10"))
                 .andExpect(status().isForbidden());
 
+        mockMvc.perform(post("/api/hospitals/sync/region")
+                        .param("sidoCd", "470000")
+                        .param("sgguCd", "471900")
+                        .param("numOfRows", "10"))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(post("/api/hospitals/sync/location")
+                        .param("lat", "36.12")
+                        .param("lng", "128.34")
+                        .param("radiusMeters", "20000")
+                        .param("numOfRows", "10"))
+                .andExpect(status().isForbidden());
+
         mockMvc.perform(post("/api/hospitals/sync/evaluations"))
                 .andExpect(status().isForbidden());
 
@@ -90,6 +104,10 @@ class HospitalControllerSyncSecurityTest {
                 .willReturn(SyncResult.builder().keyConfigured(true).fetchedCount(0).saved(0).build());
         given(hiraSyncService.syncAllRegions(anyInt()))
                 .willReturn(SyncResult.builder().keyConfigured(true).fetchedCount(0).saved(0).build());
+        given(hiraSyncService.syncRegion(anyString(), any(), anyInt()))
+                .willReturn(SyncResult.builder().keyConfigured(true).fetchedCount(0).saved(0).build());
+        given(hiraSyncService.syncByLocation(anyDouble(), anyDouble(), anyInt(), anyInt()))
+                .willReturn(SyncResult.builder().keyConfigured(true).fetchedCount(0).saved(0).build());
         given(hospitalEvaluationSyncService.syncAll(any())).willReturn(0);
         given(hospitalEvaluationSyncService.syncOne(anyString())).willReturn(true);
         given(hospitalEvaluationSyncService.syncByAddressKeyword(anyString(), any())).willReturn(0);
@@ -102,6 +120,21 @@ class HospitalControllerSyncSecurityTest {
 
         mockMvc.perform(post("/api/hospitals/sync/all")
                         .header("X-Admin-Key", "test-admin-key")
+                        .param("numOfRows", "10"))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/hospitals/sync/region")
+                        .header("X-Admin-Key", "test-admin-key")
+                        .param("sidoCd", "470000")
+                        .param("sgguCd", "471900")
+                        .param("numOfRows", "10"))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/hospitals/sync/location")
+                        .header("X-Admin-Key", "test-admin-key")
+                        .param("lat", "36.12")
+                        .param("lng", "128.34")
+                        .param("radiusMeters", "20000")
                         .param("numOfRows", "10"))
                 .andExpect(status().isOk());
 
@@ -121,6 +154,8 @@ class HospitalControllerSyncSecurityTest {
 
         then(hiraSyncService).should().syncFromHira(1, 10);
         then(hiraSyncService).should().syncAllRegions(10);
+        then(hiraSyncService).should().syncRegion("470000", "471900", 10);
+        then(hiraSyncService).should().syncByLocation(36.12, 128.34, 20000, 10);
         then(hospitalEvaluationSyncService).should().syncAll(any());
         then(hospitalEvaluationSyncService).should().syncOne("some-ykiho");
         then(hospitalEvaluationSyncService).should().syncByAddressKeyword("구미", null);

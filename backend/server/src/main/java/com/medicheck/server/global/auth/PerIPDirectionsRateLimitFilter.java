@@ -10,10 +10,15 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.MediaType;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.net.InetAddress;
+import java.util.Arrays;
+import java.util.Set;
+import java.util.stream.Collectors;
 import java.time.Duration;
 
 /**
@@ -26,8 +31,11 @@ public class PerIPDirectionsRateLimitFilter extends OncePerRequestFilter {
     private static final String DIRECTIONS_PATH = "/api/directions";
 
     private final LoadingCache<String, RateLimiter> limiters;
+    private final Set<String> trustedProxies;
 
-    public PerIPDirectionsRateLimitFilter(DirectionsRateLimitProperties props) {
+    public PerIPDirectionsRateLimitFilter(
+            DirectionsRateLimitProperties props,
+            @Value("${app.security.trusted-proxies:127.0.0.1,::1}") String trustedProxiesRaw) {
         RateLimiterConfig config = RateLimiterConfig.custom()
                 .limitForPeriod(props.getPerClientLimitForPeriod())
                 .limitRefreshPeriod(props.getPerClientRefreshPeriod())
@@ -37,6 +45,10 @@ public class PerIPDirectionsRateLimitFilter extends OncePerRequestFilter {
                 .maximumSize(10_000)
                 .expireAfterAccess(Duration.ofMinutes(10))
                 .build(ip -> RateLimiter.of(ip, config));
+        this.trustedProxies = Arrays.stream(trustedProxiesRaw.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .collect(Collectors.toSet());
     }
 
     @Override
@@ -65,15 +77,35 @@ public class PerIPDirectionsRateLimitFilter extends OncePerRequestFilter {
     }
 
     private String resolveClientIp(HttpServletRequest request) {
+        String remote = request.getRemoteAddr();
+        if (!isTrustedProxy(remote)) {
+            return remote != null ? remote : "unknown";
+        }
+
         String forwarded = request.getHeader("X-Forwarded-For");
         if (forwarded != null && !forwarded.isBlank()) {
-            return forwarded.split(",")[0].trim();
+            String candidate = forwarded.split(",")[0].trim();
+            if (isValidIp(candidate)) {
+                return candidate;
+            }
         }
         String realIp = request.getHeader("X-Real-IP");
-        if (realIp != null && !realIp.isBlank()) {
+        if (realIp != null && !realIp.isBlank() && isValidIp(realIp.trim())) {
             return realIp.trim();
         }
-        String remote = request.getRemoteAddr();
         return remote != null ? remote : "unknown";
+    }
+
+    private boolean isTrustedProxy(String ip) {
+        return ip != null && trustedProxies.contains(ip);
+    }
+
+    private boolean isValidIp(String ip) {
+        try {
+            InetAddress.getByName(ip);
+            return true;
+        } catch (Exception ignored) {
+            return false;
+        }
     }
 }

@@ -12,6 +12,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.Collections;
 
 /**
@@ -33,7 +35,12 @@ public class XAdminKeyAuthFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
         String key = request.getHeader(ADMIN_KEY_HEADER);
-        if (adminSyncKey != null && !adminSyncKey.isBlank() && key != null && adminSyncKey.equals(key)) {
+        if (adminSyncKey != null
+                && !adminSyncKey.isBlank()
+                && key != null
+                && MessageDigest.isEqual(
+                        adminSyncKey.getBytes(StandardCharsets.UTF_8),
+                        key.getBytes(StandardCharsets.UTF_8))) {
             var auth = new UsernamePasswordAuthenticationToken(
                     "admin",
                     null,

@@ -53,10 +53,6 @@ public class HospitalController {
     private final HospitalTop5SyncService hospitalTop5SyncService;
 
     /**
-     * 병원 목록 조회 (검색/필터/정렬/페이지네이션).
-     * GET /api/hospitals?page=0&size=20&keyword=검색어&department=내과&sort=name,asc
-     */
-    /**
      * 병원 상세 조회.
      * GET /api/hospitals/{id}
      */
@@ -69,6 +65,10 @@ public class HospitalController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    /**
+     * 병원 목록 조회 (검색/필터/정렬/페이지네이션).
+     * GET /api/hospitals?page=0&size=20&keyword=검색어&department=내과&sort=name,asc
+     */
     @Operation(summary = "병원 목록", description = "keyword(이름·주소·진료과), department 필터, 페이지네이션·정렬을 지원합니다.")
     @GetMapping
     public ResponseEntity<Page<HospitalResponse>> getHospitals(

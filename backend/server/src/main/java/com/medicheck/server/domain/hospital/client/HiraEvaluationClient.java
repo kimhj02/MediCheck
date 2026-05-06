@@ -48,18 +48,18 @@ public class HiraEvaluationClient {
             throw new HiraApiException("HIRA 평가 API 인증키가 설정되지 않았습니다. hira.eval.service-key 또는 HIRA_SERVICE_KEY 를 설정하세요.");
         }
 
-        try {
-            UriComponentsBuilder builder = UriComponentsBuilder
-                    .fromUriString(properties.getBaseUrl() + "/" + OPERATION)
-                    .queryParam("ServiceKey", properties.getServiceKey())
-                    .queryParam("pageNo", pageNo)
-                    .queryParam("numOfRows", numOfRows)
-                    .queryParam("_type", RESPONSE_TYPE_JSON);
-            if (ykiho != null && !ykiho.isBlank()) {
-                builder.queryParam("ykiho", ykiho);
-            }
+        UriComponentsBuilder builder = UriComponentsBuilder
+                .fromUriString(properties.getBaseUrl() + "/" + OPERATION)
+                .queryParam("ServiceKey", properties.getServiceKey())
+                .queryParam("pageNo", pageNo)
+                .queryParam("numOfRows", numOfRows)
+                .queryParam("_type", RESPONSE_TYPE_JSON);
+        if (ykiho != null && !ykiho.isBlank()) {
+            builder.queryParam("ykiho", ykiho);
+        }
+        URI uri = builder.build().encode().toUri();
 
-            URI uri = builder.build().encode().toUri();
+        try {
             ResponseEntity<HiraAsmApiResponse> response = restTemplate.getForEntity(uri, HiraAsmApiResponse.class);
             HiraAsmApiResponse body = response.getBody();
 
@@ -76,6 +76,8 @@ public class HiraEvaluationClient {
                 }
             }
             return body.getItemList();
+        } catch (HiraApiException e) {
+            throw e;
         } catch (Exception e) {
             log.error("HIRA 평가 API 호출 실패", e);
             throw new HiraApiException("HIRA 평가 API 호출 실패", e);

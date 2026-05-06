@@ -34,6 +34,7 @@ public class HospitalClinicTop5 {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    // 병원당 Top5 레코드 1건만 유지하기 위해 unique 제약을 둔 연관관계입니다.
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "hospital_id", nullable = false, unique = true)
     @OnDelete(action = OnDeleteAction.CASCADE)

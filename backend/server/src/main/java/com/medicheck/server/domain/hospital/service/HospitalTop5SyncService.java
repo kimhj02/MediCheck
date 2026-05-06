@@ -12,7 +12,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.List;
 import java.util.Optional;
@@ -31,11 +32,11 @@ public class HospitalTop5SyncService {
     private final HiraClinicTop5Client clinicTop5Client;
     private final HospitalRepository hospitalRepository;
     private final HospitalClinicTop5Repository top5Repository;
+    private final PlatformTransactionManager transactionManager;
 
     /**
      * 주소(address) 포함 키워드(예: 구미)가 들어간 병원만 Top5를 1건씩 동기화한다.
      */
-    @Transactional
     public int syncByAddressKeyword(String addressKeyword, Integer maxSynced) {
         if (addressKeyword == null || addressKeyword.isBlank()) return 0;
 
@@ -52,7 +53,7 @@ public class HospitalTop5SyncService {
         for (Hospital h : hospitals) {
             String ykiho = trim(h.getPublicCode(), 500);
             if (ykiho == null || ykiho.isBlank()) continue;
-            if (syncOneInternal(ykiho)) {
+            if (syncOne(ykiho)) {
                 count++;
             }
         }
@@ -66,13 +67,8 @@ public class HospitalTop5SyncService {
      *
      * @return 저장/갱신 성공 여부
      */
-    @Transactional
     public boolean syncOne(String ykiho) {
         if (ykiho == null || ykiho.isBlank()) return false;
-        return syncOneInternal(ykiho);
-    }
-
-    private boolean syncOneInternal(String ykiho) {
         String normalized = trim(ykiho, 500);
         if (normalized == null || normalized.isBlank()) {
             log.info("Top5 1건 동기화 스킵: ykiho 비어 있음");
@@ -90,7 +86,7 @@ public class HospitalTop5SyncService {
                 normalized, DEFAULT_PAGE_NO, DEFAULT_NUM_OF_ROWS
         );
         if (item == null) {
-            long deleted = top5Repository.deleteByHospital_Id(hospital.getId());
+            long deleted = deleteTop5ByHospitalId(hospital.getId());
             log.info("Top5 1건 동기화 스킵: 공공데이터 응답 없음 ykiho={}, hospitalId={}, staleHospitalClinicTop5Deleted={}",
                     normalized, hospital.getId(), deleted);
             return false;
@@ -107,14 +103,25 @@ public class HospitalTop5SyncService {
                 .diseaseNm5(trim(item.getMfrnIntrsIlnsNm5(), 100))
                 .build();
 
-        Optional<HospitalClinicTop5> existingOpt = top5Repository.findByHospital_Id(hospital.getId());
-        if (existingOpt.isPresent()) {
-            existingOpt.get().updateFromApi(newData);
-            top5Repository.save(existingOpt.get());
-        } else {
-            top5Repository.save(newData);
-        }
+        upsertTop5(hospital.getId(), newData);
         return true;
+    }
+
+    protected long deleteTop5ByHospitalId(Long hospitalId) {
+        return new TransactionTemplate(transactionManager)
+                .execute(status -> top5Repository.deleteByHospital_Id(hospitalId));
+    }
+
+    protected void upsertTop5(Long hospitalId, HospitalClinicTop5 newData) {
+        new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
+            Optional<HospitalClinicTop5> existingOpt = top5Repository.findByHospital_Id(hospitalId);
+            if (existingOpt.isPresent()) {
+                existingOpt.get().updateFromApi(newData);
+                top5Repository.save(existingOpt.get());
+                return;
+            }
+            top5Repository.save(newData);
+        });
     }
 
     private static String trim(String value, int maxLen) {
